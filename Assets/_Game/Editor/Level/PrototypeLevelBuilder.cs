@@ -385,7 +385,7 @@ namespace HouseOfSilence.EditorTools.Level
         // Nuit
         // ------------------------------------------------------------------
 
-        private static void SetupNight(Transform lighting)
+        internal static void SetupNight(Transform lighting)
         {
             // Lune : basse, froide, ombres douces.
             GameObject moonObject = new GameObject("Moon");
@@ -499,6 +499,14 @@ namespace HouseOfSilence.EditorTools.Level
 
         private static void SetupSystems(Terrain terrain)
         {
+            Vector2 spawn = PrototypeTerrainBuilder.PlayerSpawnXZ;
+            float y = PrototypeTerrainBuilder.SampleHeight(terrain, spawn.x, spawn.y) + 0.15f;
+            SetupSystems(new Vector3(spawn.x, y, spawn.y), Quaternion.identity); // face au nord : la maison
+        }
+
+        /// <summary>Noyau, managers de niveau, menu de pause et joueur place en <paramref name="spawnPosition"/>. Reutilise par le manoir.</summary>
+        internal static void SetupSystems(Vector3 spawnPosition, Quaternion spawnRotation)
+        {
             CoreSetupMenu.CreateCoreSystems();
             ObjectiveSetupMenu.CreateObjectiveManager();
 
@@ -519,10 +527,8 @@ namespace HouseOfSilence.EditorTools.Level
 
             if (player != null)
             {
-                Vector2 spawn = PrototypeTerrainBuilder.PlayerSpawnXZ;
-                float y = PrototypeTerrainBuilder.SampleHeight(terrain, spawn.x, spawn.y) + 0.15f;
-                player.transform.position = new Vector3(spawn.x, y, spawn.y);
-                player.transform.rotation = Quaternion.identity; // face au nord : la maison
+                player.transform.position = spawnPosition;
+                player.transform.rotation = spawnRotation;
 
                 DoorSetupMenu.EnsureDoorDebugOnPlayer();
 
