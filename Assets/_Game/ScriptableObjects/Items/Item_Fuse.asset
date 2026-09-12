@@ -23,6 +23,6 @@ MonoBehaviour:
   consumeOnUse: 0
   droppable: 1
   keyId: 
-  worldPrefab: {fileID: 0}
+  worldPrefab: {fileID: 4399794714031270026, guid: b916d2d9f7dbec743a36c77cc1e97446, type: 3}
   pickupSound: {fileID: 0}
   useSound: {fileID: 0}

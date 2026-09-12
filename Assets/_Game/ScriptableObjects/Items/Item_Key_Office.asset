@@ -23,6 +23,6 @@ MonoBehaviour:
   consumeOnUse: 0
   droppable: 1
   keyId: office
-  worldPrefab: {fileID: 0}
+  worldPrefab: {fileID: 8296382924685395518, guid: 245c906dbd536c141b2fcf944f0f3dcb, type: 3}
   pickupSound: {fileID: 0}
   useSound: {fileID: 0}

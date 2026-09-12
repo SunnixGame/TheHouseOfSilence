@@ -109,7 +109,8 @@ namespace HouseOfSilence.EditorTools
 
         // ------------------------------------------------------------------
 
-        private static GameObject BuildDoor<T>(string doorName, Vector3 position) where T : DoorBase
+        /// <summary>Construit une porte complete (dormant + charniere + battant + script). Reutilisable par les autres outils.</summary>
+        public static GameObject BuildDoor<T>(string doorName, Vector3 position) where T : DoorBase
         {
             GameObject root = new GameObject(doorName);
             root.transform.position = position;

@@ -16,8 +16,18 @@ namespace HouseOfSilence.Core.Debugging
         [SerializeField] private bool logGameState = true;
         [SerializeField] private bool logSceneLoading = true;
 
+        // Un seul logger actif, sinon chaque evenement est ecrit deux fois quand
+        // une scene apporte son propre [Core] alors que le persistant existe.
+        private static CoreEventLogger s_Active;
+
         private void OnEnable()
         {
+            if (s_Active != null && s_Active != this)
+            {
+                return;
+            }
+
+            s_Active = this;
             EventBus.Subscribe<GameStateChangedEvent>(OnGameStateChanged);
             EventBus.Subscribe<GameStartedEvent>(OnGameStarted);
             EventBus.Subscribe<GamePauseChangedEvent>(OnPauseChanged);
@@ -28,6 +38,12 @@ namespace HouseOfSilence.Core.Debugging
 
         private void OnDisable()
         {
+            if (s_Active != this)
+            {
+                return;
+            }
+
+            s_Active = null;
             EventBus.Unsubscribe<GameStateChangedEvent>(OnGameStateChanged);
             EventBus.Unsubscribe<GameStartedEvent>(OnGameStarted);
             EventBus.Unsubscribe<GamePauseChangedEvent>(OnPauseChanged);

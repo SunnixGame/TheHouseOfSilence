@@ -23,6 +23,6 @@ MonoBehaviour:
   consumeOnUse: 0
   droppable: 1
   keyId: basement
-  worldPrefab: {fileID: 0}
+  worldPrefab: {fileID: 671736974263612299, guid: 7a0412657ecb6624bb9a547b0b62b73c, type: 3}
   pickupSound: {fileID: 0}
   useSound: {fileID: 0}

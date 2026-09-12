@@ -52,7 +52,7 @@ namespace HouseOfSilence.EditorTools
             controller.height = 1.8f;
             controller.radius = 0.3f;
             controller.center = new Vector3(0f, 0.9f, 0f);
-            controller.slopeLimit = 46f;
+            controller.slopeLimit = 55f; // les escaliers du pack modulaire sont des rampes de collision a ~49 degres
             controller.stepOffset = 0.35f;
             controller.skinWidth = 0.02f;
             controller.minMoveDistance = 0f;
@@ -114,6 +114,10 @@ namespace HouseOfSilence.EditorTools
             // --- HUD temporaire (interaction + inventaire) -----------------
             EnsurePromptOverlay();
             ItemSetupMenu.EnsureInventoryHud();
+
+            // --- Peur (Phase 7) --------------------------------------------
+            FearSetupMenu.AddFearComponents(character);
+            FearSetupMenu.EnsureFearHud();
 
             // --- Nettoyage de la scene -------------------------------------
             DisableOtherAudioListeners(cameraObject);

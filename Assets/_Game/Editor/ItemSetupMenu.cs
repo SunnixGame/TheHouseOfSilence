@@ -289,7 +289,8 @@ namespace HouseOfSilence.EditorTools
                     continue;
                 }
 
-                GameObject instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+                GameObject source = data.WorldPrefab != null ? data.WorldPrefab : prefab;
+                GameObject instance = PrefabUtility.InstantiatePrefab(source) as GameObject;
 
                 if (instance == null)
                 {

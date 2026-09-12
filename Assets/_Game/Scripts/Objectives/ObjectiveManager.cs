@@ -215,6 +215,23 @@ namespace HouseOfSilence.Objectives
             }
 
             _currentIndex = index;
+
+            // Objectif deja accompli en avance (trigger avec Require Objective
+            // Active decoche) : on le traverse sans le redemander au joueur.
+            ObjectiveState existing;
+
+            if (_states.TryGetValue(objective.ObjectiveId, out existing) && existing == ObjectiveState.Completed)
+            {
+                if (logToConsole)
+                {
+                    Debug.Log("[Objectifs] " + (index + 1) + "/" + objectives.Count + " - " + objective.Title + " (deja accompli, passage direct)");
+                }
+
+                EventBus.Publish(new ObjectiveActivatedEvent(objective, index, objectives.Count));
+                AdvanceToNext();
+                return;
+            }
+
             _states[objective.ObjectiveId] = ObjectiveState.Active;
 
             _hintShown = false;

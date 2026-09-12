@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91ff165421b1e4143ba1f4a35938f035, type: 3}
+  m_Name: HE_PhoneRing
+  m_EditorClassIdentifier: Assembly-CSharp::HouseOfSilence.Horror.HorrorEventData
+  eventId: phone_ring
+  displayName: Le telephone sonne
+  kind: 6
+  designerNotes: Necessite un HorrorSpot 'phone'. Une seule fois par partie.
+  minFear: 0
+  maxFear: 100
+  minGameTime: 200
+  minObjectiveIndex: 0
+  maxObjectiveIndex: -1
+  monsterRequirement: 0
+  requiresPower: 0
+  weight: 1
+  cooldown: 300
+  maxOccurrences: 1
+  fearImpact: 8
+  fearRadius: 20
+  noiseRadius: 14
+  duration: 6
+  positionMode: 3
+  minDistance: 2
+  maxDistance: 30
+  spotTag: phone
+  sound: {fileID: 0}
+  soundVolume: 0.9
+  visualPrefab: {fileID: 0}

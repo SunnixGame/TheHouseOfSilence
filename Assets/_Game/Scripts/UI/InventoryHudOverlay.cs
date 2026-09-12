@@ -34,6 +34,7 @@ namespace HouseOfSilence.UI
         [SerializeField] private Color emptyTextColor = new Color(1f, 1f, 1f, 0.25f);
 
         private PlayerInventory _inventory;
+        private InventoryIconRenderer _iconRenderer;
         private int _selectedIndex;
         private string _message = string.Empty;
         private float _messageTimer;
@@ -46,6 +47,13 @@ namespace HouseOfSilence.UI
 
         private void Awake()
         {
+            _iconRenderer = GetComponent<InventoryIconRenderer>();
+
+            if (_iconRenderer == null)
+            {
+                _iconRenderer = gameObject.AddComponent<InventoryIconRenderer>();
+            }
+
             _pixel = new Texture2D(1, 1, TextureFormat.RGBA32, false);
             _pixel.SetPixel(0, 0, Color.white);
             _pixel.Apply();
@@ -220,13 +228,22 @@ namespace HouseOfSilence.UI
 
             ItemData item = slot.Item;
 
-            if (item.Icon != null)
+            // 1. Le mesh de l'objet, rendu en 3D et qui tourne (prefere).
+            Texture preview = _iconRenderer != null ? _iconRenderer.GetPreview(item) : null;
+
+            if (preview != null)
             {
+                GUI.DrawTexture(new Rect(rect.x + 2f, rect.y + 2f, rect.width - 4f, rect.height - 4f), preview, ScaleMode.ScaleToFit);
+            }
+            else if (item.Icon != null)
+            {
+                // 2. Icone 2D si l'objet en a une.
                 Rect iconRect = new Rect(rect.x + 8f, rect.y + 6f, rect.width - 16f, rect.height - 24f);
                 GUI.DrawTexture(iconRect, item.Icon.texture, ScaleMode.ScaleToFit);
             }
             else
             {
+                // 3. Sinon, son nom.
                 _slotStyle.normal.textColor = textColor;
                 GUI.Label(new Rect(rect.x + 3f, rect.y + 4f, rect.width - 6f, rect.height - 18f), ShortName(item.ItemName), _slotStyle);
             }

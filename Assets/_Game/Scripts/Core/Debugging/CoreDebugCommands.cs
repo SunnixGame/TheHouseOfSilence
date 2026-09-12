@@ -15,12 +15,23 @@ namespace HouseOfSilence.Core.Debugging
     {
         [SerializeField] private bool registerCommands = true;
 
+        // Un seul jeu de commandes actif : le [Core] persistant gagne sur celui
+        // d'une scene chargee ensuite (qui est detruit juste apres).
+        private static CoreDebugCommands s_Active;
+
         private void OnEnable()
         {
             if (!registerCommands)
             {
                 return;
             }
+
+            if (s_Active != null && s_Active != this)
+            {
+                return;
+            }
+
+            s_Active = this;
 
             DebugManager.Register(Key.F9, "Forcer VICTOIRE", ForceVictory);
             DebugManager.Register(Key.F10, "Forcer GAME OVER", ForceDefeat);
@@ -29,6 +40,12 @@ namespace HouseOfSilence.Core.Debugging
 
         private void OnDisable()
         {
+            if (s_Active != this)
+            {
+                return;
+            }
+
+            s_Active = null;
             DebugManager.Unregister(Key.F9);
             DebugManager.Unregister(Key.F10);
             DebugManager.Unregister(Key.F11);
