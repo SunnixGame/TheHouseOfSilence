@@ -78,6 +78,8 @@ namespace HouseOfSilence.EditorTools.Level
 
         private static Transform s_Root;
         private static Material s_Wood, s_Stone;
+        internal static Material WoodMaterial { get { return s_Wood; } }
+        internal static Material StoneMaterial { get { return s_Stone; } }
 
         // ------------------------------------------------------------------
 
@@ -963,7 +965,7 @@ namespace HouseOfSilence.EditorTools.Level
             return go.transform;
         }
 
-        private static GameObject Box(Transform parent, string name, float x0, float x1, float y0, float y1, float z0, float z1, Material material)
+        internal static GameObject Box(Transform parent, string name, float x0, float x1, float y0, float y1, float z0, float z1, Material material)
         {
             if (x1 - x0 <= 0.0005f || y1 - y0 <= 0.0005f || z1 - z0 <= 0.0005f)
             {
@@ -1000,7 +1002,7 @@ namespace HouseOfSilence.EditorTools.Level
             room.Configure(roomName, floorIndex);
         }
 
-        private static void Bulb(Transform parent, string name, Vector3 localPosition, Color color, float intensity, float range, bool startOn, bool requiresPower, float failuresPerMinute)
+        internal static void Bulb(Transform parent, string name, Vector3 localPosition, Color color, float intensity, float range, bool startOn, bool requiresPower, float failuresPerMinute)
         {
             GameObject bulb = LightSetupMenu.BuildBulb(parent, name, Vector3.zero, color, intensity, range);
             bulb.transform.localPosition = localPosition;
@@ -1009,7 +1011,7 @@ namespace HouseOfSilence.EditorTools.Level
             LightSetupMenu.SetFloat(controller, "randomFailuresPerMinute", failuresPerMinute);
         }
 
-        private static void Switch(Transform parent, string name, Vector3 localPosition, float autoRadius)
+        internal static void Switch(Transform parent, string name, Vector3 localPosition, float autoRadius)
         {
             GameObject sw = LightSetupMenu.BuildSwitch(name, Vector3.zero, new Vector3(0.06f, 0.16f, 0.1f));
             Attach(sw, parent, localPosition);
@@ -1018,7 +1020,7 @@ namespace HouseOfSilence.EditorTools.Level
             LightSetupMenu.SetFloat(component, "autoRadius", autoRadius);
         }
 
-        private static void Zone(Transform parent, string name, Vector3 localCenter, Vector3 size, string objectiveAsset)
+        internal static void Zone(Transform parent, string name, Vector3 localCenter, Vector3 size, string objectiveAsset)
         {
             GameObject go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -1031,7 +1033,7 @@ namespace HouseOfSilence.EditorTools.Level
             AttachObjective(go, objectiveAsset);
         }
 
-        private static void Pickup(Transform parent, string itemAsset, Vector3 localPosition, int count)
+        internal static void Pickup(Transform parent, string itemAsset, Vector3 localPosition, int count)
         {
             ItemData item = LoadItem(itemAsset);
 
@@ -1069,7 +1071,7 @@ namespace HouseOfSilence.EditorTools.Level
             }
         }
 
-        private static void AttachObjective(GameObject go, string objectiveAsset)
+        internal static void AttachObjective(GameObject go, string objectiveAsset)
         {
             ObjectiveData objective = AssetDatabase.LoadAssetAtPath<ObjectiveData>(ObjectivesFolder + "/" + objectiveAsset + ".asset");
 
@@ -1086,18 +1088,18 @@ namespace HouseOfSilence.EditorTools.Level
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void Attach(GameObject go, Transform parent, Vector3 localPosition)
+        internal static void Attach(GameObject go, Transform parent, Vector3 localPosition)
         {
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localPosition;
         }
 
-        private static ItemData LoadItem(string assetName)
+        internal static ItemData LoadItem(string assetName)
         {
             return AssetDatabase.LoadAssetAtPath<ItemData>(ItemsFolder + "/" + assetName + ".asset");
         }
 
-        private static void SetString(Object target, string field, string value)
+        internal static void SetString(Object target, string field, string value)
         {
             SerializedObject so = new SerializedObject(target);
             SerializedProperty p = so.FindProperty(field);
@@ -1113,7 +1115,7 @@ namespace HouseOfSilence.EditorTools.Level
             }
         }
 
-        private static void SetBool(Object target, string field, bool value)
+        internal static void SetBool(Object target, string field, bool value)
         {
             SerializedObject so = new SerializedObject(target);
             SerializedProperty p = so.FindProperty(field);
@@ -1129,7 +1131,7 @@ namespace HouseOfSilence.EditorTools.Level
         // Materiaux du mobilier provisoire
         // ==================================================================
 
-        private static void LoadMaterials()
+        internal static void LoadMaterials()
         {
             if (!AssetDatabase.IsValidFolder(MaterialsFolder))
             {

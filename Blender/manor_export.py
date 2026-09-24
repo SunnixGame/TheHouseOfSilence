@@ -69,10 +69,32 @@ def build_hierarchy_empties(root_name="MANOR_ROOT"):
     return count
 
 
+def add_box_uvs(mesh):
+    """UV par projection boite : chaque face est projetee selon l'axe dominant de sa normale,
+    en unites metres (les materiaux Unity tuilent donc en espace monde)."""
+    if mesh.uv_layers:
+        return False
+    uv = mesh.uv_layers.new(name="UVMap")
+    data = uv.data
+    for poly in mesh.polygons:
+        n = poly.normal
+        ax, ay, az = abs(n.x), abs(n.y), abs(n.z)
+        for li in poly.loop_indices:
+            co = mesh.vertices[mesh.loops[li].vertex_index].co
+            if az >= ax and az >= ay:
+                data[li].uv = (co.x, co.y)
+            elif ax >= ay:
+                data[li].uv = (co.y, co.z)
+            else:
+                data[li].uv = (co.x, co.z)
+    return True
+
+
 def export_manor(path=None, include_issues=False):
     path = path or FBX_PATH
     os.makedirs(os.path.dirname(path), exist_ok=True)
     reparented = build_hierarchy_empties()
+    uv_count = sum(1 for m in bpy.data.meshes if add_box_uvs(m))
 
     # selection : tout MANOR_ROOT sauf exclusions
     excluded = []
@@ -117,4 +139,4 @@ def export_manor(path=None, include_issues=False):
     for obj in bpy.data.objects:
         obj.select_set(False)
     size = os.path.getsize(path) if os.path.exists(path) else 0
-    return dict(fbx=path, objects=selected, excluded=excluded, reparented=reparented, size_mb=round(size / 1e6, 1))
+    return dict(fbx=path, objects=selected, excluded=excluded, reparented=reparented, size_mb=round(size / 1e6, 1), uv_added=uv_count)

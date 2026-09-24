@@ -233,8 +233,9 @@ def make_empty(name, coll_path, location, props=None, size=0.5):
 # =============================================================================
 
 class Room:
-    def __init__(self, name, x0, x1, y0, y1, zone=None, floor=True, ceiling=True, floor_mat=None, wall_mat=None):
+    def __init__(self, name, x0, x1, y0, y1, zone=None, floor=True, ceiling=True, floor_mat=None, wall_mat=None, ceiling_holes=None):
         self.name = name
+        self.ceiling_holes = ceiling_holes or []   # rectangles (x0, x1, y0, y1) perces dans le plafond (trappes)
         self.x0, self.x1, self.y0, self.y1 = float(x0), float(x1), float(y0), float(y1)
         self.zone = zone            # deux pieces de meme zone ne sont pas separees par un mur
         self.floor = floor          # False = tremie (vide, cage d'escalier)
@@ -521,7 +522,7 @@ def build_slabs(level, prefix):
             if slopes:
                 rect = shrink_rect(rect, slopes, level.slope_run)
                 build_sloped_ceilings(level, prefix, r, slopes)
-            parts = subtract_rects(rect, holes_above) if rect else []
+            parts = subtract_rects(rect, holes_above + r.ceiling_holes) if rect else []
             boxes = [(p[0], p[1], p[2], p[3], level.ceiling_z, level.ceiling_z + SLAB) for p in parts]
             if boxes:
                 make_mesh_object("%s_Ceiling_%s" % (prefix, r.name), boxes, "%s/Ceilings" % level.name, level.ceil_mat,
@@ -998,7 +999,7 @@ def define_levels():
         R("Stockage", 40, 48, 8, 19.4),
         R("CouloirEtroit", 4, 48, 19.4, 21),
         R("Grenier", 4, 40, 21, 24, zone="grenier"),
-        R("EscGrenier", 40, 44, 21, 24),
+        R("EscGrenier", 40, 44, 21, 24, ceiling_holes=[(41.0, 44.0, 22.95, 23.98)]),   # trappe du grenier (longue : la tete passe des la mi-echelle)
         R("DebarrasF2", 44, 48, 21, 24),
         R("GrenierOuest", 4, 8, 24, 30, zone="grenier"),
         R("EscService", 8, 12, 24, 30, floor=False),

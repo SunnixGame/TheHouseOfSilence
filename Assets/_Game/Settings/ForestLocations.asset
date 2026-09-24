@@ -1,0 +1,185 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f26603e44fe303643a64f5b4625fa3a9, type: 3}
+  m_Name: ForestLocations
+  m_EditorClassIdentifier: Assembly-CSharp::HouseOfSilence.Level.ForestLocations
+  locations:
+  - clearingId: Clairiere_00
+    displayName: "La Clairi\xE8re du D\xE9part"
+    showOnMap: 1
+    position: {x: 1000, y: 34.445362, z: 1000}
+    radius: 55
+  - clearingId: Clairiere_01
+    displayName: "La Clairi\xE8re des Murmures"
+    showOnMap: 1
+    position: {x: 351.39362, y: 30.526094, z: 284.7398}
+    radius: 30.3
+  - clearingId: Clairiere_02
+    displayName: "Le Ch\xEAne Pendu"
+    showOnMap: 1
+    position: {x: 155.16663, y: 52.78987, z: 494.46484}
+    radius: 31.6
+  - clearingId: Clairiere_03
+    displayName: "L'\xC9glise"
+    showOnMap: 1
+    position: {x: 1356.3569, y: 49.1718, z: 857.5454}
+    radius: 45
+  - clearingId: Clairiere_04
+    displayName: La Mare Noire
+    showOnMap: 1
+    position: {x: 782.43335, y: 28.46321, z: 744.4766}
+    radius: 24
+  - clearingId: Clairiere_05
+    displayName: Le Cercle de Pierres
+    showOnMap: 1
+    position: {x: 1064.8273, y: 41.168232, z: 1846.6024}
+    radius: 35.3
+  - clearingId: Clairiere_06
+    displayName: "Le Cimeti\xE8re"
+    showOnMap: 1
+    position: {x: 1670.1194, y: 58.749535, z: 759.44836}
+    radius: 60.7
+  - clearingId: Clairiere_07
+    displayName: "La Clairi\xE8re aux Corbeaux"
+    showOnMap: 1
+    position: {x: 1872.0488, y: 42.650208, z: 1638.5833}
+    radius: 31.4
+  - clearingId: Clairiere_08
+    displayName: Le Vallon des Brumes
+    showOnMap: 1
+    position: {x: 397.90674, y: 48.272415, z: 741.68787}
+    radius: 37.6
+  - clearingId: Clairiere_09
+    displayName: "La Croix Bris\xE9e"
+    showOnMap: 1
+    position: {x: 1196.2804, y: 45.8178, z: 408.51807}
+    radius: 30.7
+  - clearingId: Clairiere_10
+    displayName: "Le Puits Oubli\xE9"
+    showOnMap: 1
+    position: {x: 675.3822, y: 30.307463, z: 1272.2727}
+    radius: 54.2
+  - clearingId: Clairiere_11
+    displayName: "La Clairi\xE8re du B\xFBcheron"
+    showOnMap: 1
+    position: {x: 364.51758, y: 27.33234, z: 1432.0181}
+    radius: 48.3
+  - clearingId: Clairiere_12
+    displayName: Les Souches Grises
+    showOnMap: 1
+    position: {x: 823.0879, y: 26.61089, z: 506.40356}
+    radius: 50.7
+  - clearingId: Clairiere_13
+    displayName: La Lande Morte
+    showOnMap: 1
+    position: {x: 1646.3973, y: 45.28453, z: 378.56372}
+    radius: 35
+  - clearingId: Clairiere_14
+    displayName: "Le Gu\xE9 des Pleurs"
+    showOnMap: 1
+    position: {x: 790.13696, y: 43.288067, z: 1879.5144}
+    radius: 43.6
+  - clearingId: Clairiere_15
+    displayName: L'Ermitage
+    showOnMap: 1
+    position: {x: 1324.9146, y: 44.649765, z: 305.32855}
+    radius: 28.9
+  - clearingId: Clairiere_16
+    displayName: Le Bois des Pendus
+    showOnMap: 1
+    position: {x: 1831.3948, y: 46.462063, z: 1461.5374}
+    radius: 49.1
+  - clearingId: Clairiere_17
+    displayName: La Butte aux Loups
+    showOnMap: 1
+    position: {x: 1724.9668, y: 47.574165, z: 1171.4042}
+    radius: 63.8
+  - clearingId: Clairiere_18
+    displayName: La Fosse
+    showOnMap: 1
+    position: {x: 532.18005, y: 40.22486, z: 534.7284}
+    radius: 32.2
+  - clearingId: Clairiere_19
+    displayName: Le Refuge
+    showOnMap: 1
+    position: {x: 1332.8446, y: 78.10651, z: 1373.307}
+    radius: 53.5
+  - clearingId: Clairiere_20
+    displayName: "La Clairi\xE8re Silencieuse"
+    showOnMap: 1
+    position: {x: 896.99677, y: 55.739952, z: 1654.4861}
+    radius: 24.4
+  - clearingId: Clairiere_21
+    displayName: Les Ronces
+    showOnMap: 1
+    position: {x: 1654.1587, y: 17.446852, z: 1721.9559}
+    radius: 33
+  - clearingId: Clairiere_22
+    displayName: Le Vieux Moulin
+    showOnMap: 1
+    position: {x: 673.26965, y: 24.601494, z: 211.44891}
+    radius: 53.6
+  - clearingId: Clairiere_23
+    displayName: "Le Camp Abandonn\xE9"
+    showOnMap: 1
+    position: {x: 1831.0625, y: 50.845108, z: 242.68756}
+    radius: 28.2
+  - clearingId: Clairiere_24
+    displayName: "La Clairi\xE8re des Poup\xE9es"
+    showOnMap: 1
+    position: {x: 854.50885, y: 25.832687, z: 1150.7096}
+    radius: 29.4
+  - clearingId: Clairiere_25
+    displayName: Les Tertres
+    showOnMap: 1
+    position: {x: 110.58661, y: 42.89341, z: 1219.6129}
+    radius: 23.7
+  - clearingId: Clairiere_26
+    displayName: Le Rocher Fendu
+    showOnMap: 1
+    position: {x: 588.3685, y: 28.993862, z: 1759.5549}
+    radius: 53.4
+  - clearingId: Clairiere_27
+    displayName: La Source Froide
+    showOnMap: 1
+    position: {x: 143.78693, y: 18.221611, z: 1551.6487}
+    radius: 60.2
+  - clearingId: Clairiere_28
+    displayName: Le Nid
+    showOnMap: 1
+    position: {x: 1390.9832, y: 48.377472, z: 467.4541}
+    radius: 31.7
+  - clearingId: Clairiere_29
+    displayName: "La Clairi\xE8re aux Chouettes"
+    showOnMap: 1
+    position: {x: 266.3371, y: 37.227657, z: 862.4739}
+    radius: 30.2
+  - clearingId: Clairiere_30
+    displayName: Le Sentier des Ombres
+    showOnMap: 1
+    position: {x: 1683.4712, y: 55.009266, z: 148.45038}
+    radius: 34
+  - clearingId: Clairiere_31
+    displayName: "La H\xEAtraie"
+    showOnMap: 1
+    position: {x: 733.7219, y: 34.83428, z: 1016.8254}
+    radius: 35.6
+  - clearingId: Clairiere_32
+    displayName: Le Val Sombre
+    showOnMap: 1
+    position: {x: 308.25653, y: 33.778763, z: 1845.9368}
+    radius: 30.8
+  - clearingId: Clairiere_33
+    displayName: "La Clairi\xE8re des Cendres"
+    showOnMap: 1
+    position: {x: 1174.925, y: 25.261166, z: 720.48425}
+    radius: 24.3

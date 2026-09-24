@@ -28,6 +28,10 @@ public class SoundTriggerZone : MonoBehaviour
         if (playOnce && hasPlayed)
             return;
 
+        // Ressortir / rentrer en bordure de zone ne relance pas un son deja en cours.
+        if (audioSource.isPlaying)
+            return;
+
         if (soundToPlay != null)
         {
             audioSource.clip = soundToPlay;

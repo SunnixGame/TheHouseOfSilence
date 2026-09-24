@@ -146,31 +146,108 @@ def build_special_doors(levels):
                      props=props, origin=(22.06, 18.1, GF.z), rotation_z=-math.pi / 2)
     make_empty("GP_Door_Hall_SousEscalier", "GAMEPLAY_OBJECTS/Door_Points", (22.06, 17.7, GF.z + 0.85), props=props, size=0.3)
 
-    # Trappe du grenier au sommet de l'echelle (plafond du 2e a 10.6), gond sur le bord nord
+    # Trappe du grenier au sommet de l'echelle, affleurant le dessus de la dalle (10.8), gond sur
+    # le bord sud : ouverte a 160 degres elle se rabat vers le sud, sur le plancher du comble,
+    # et laisse libre la sortie nord vers la passerelle et l'echelle de la chatiere.
     trap = MeshAcc()
-    trap.box(42.8, 44.0, 22.95, 23.98, F2.ceiling_z - 0.05, F2.ceiling_z + 0.0)
+    trap.box(41.0, 44.0, 22.95, 23.98, F2.ceiling_z + SLAB - 0.05, F2.ceiling_z + SLAB)
     trap_obj = trap.finish("F2_Door_Trappe_Grenier", "SECOND_FLOOR/Doors", "M_Wood_Worn",
                            {"hos_type": "door", "hos_door": "trapdoor", "hos_rooms": "EscGrenier | toit", "hos_level": "F2",
-                            "hos_swing": 1, "hos_open_angle": 80, "hos_width": 1.2, "hos_height": 0.6})
-    # origine sur l'axe des gonds (bord nord), rotation X ouvre vers le haut
-    trap_obj.data.transform(mathutils.Matrix.Translation((-43.4, -23.98, -F2.ceiling_z)))
-    trap_obj.location = (43.4, 23.98, F2.ceiling_z)
-    make_empty("GP_Door_Trappe_Grenier", "GAMEPLAY_OBJECTS/Door_Points", (43.4, 23.5, F2.ceiling_z - 0.3),
+                            "hos_swing": 1, "hos_open_angle": 160, "hos_width": 3.0, "hos_height": 1.0})
+    trap_obj.data.transform(mathutils.Matrix.Translation((-42.5, -22.95, -(F2.ceiling_z + SLAB))))
+    trap_obj.location = (42.5, 22.95, F2.ceiling_z + SLAB)
+    make_empty("GP_Door_Trappe_Grenier", "GAMEPLAY_OBJECTS/Door_Points", (42.8, 23.5, F2.ceiling_z - 0.3),
                props={"hos_door": "trapdoor", "hos_level": "F2", "hos_swing": 1}, size=0.3)
     # cadre de trappe dans le plafond
     fr = MeshAcc()
-    fr.box(42.7, 44.0, 22.85, 22.95, F2.ceiling_z - 0.08, F2.ceiling_z + SLAB)
-    fr.box(42.7, 44.0, 23.98, 24.05, F2.ceiling_z - 0.08, F2.ceiling_z + SLAB)
-    fr.box(42.7, 42.8, 22.85, 24.05, F2.ceiling_z - 0.08, F2.ceiling_z + SLAB)
+    fr.box(40.9, 44.0, 22.85, 22.95, F2.ceiling_z - 0.08, F2.ceiling_z + SLAB)
+    fr.box(40.9, 44.0, 23.98, 24.05, F2.ceiling_z - 0.08, F2.ceiling_z + SLAB)
+    fr.box(40.9, 41.0, 22.85, 24.05, F2.ceiling_z - 0.08, F2.ceiling_z + SLAB)
     fr.finish("F2_Trappe_Cadre", DETAIL_COLL % "SECOND_FLOOR", "M_Wood_Worn", {"hos_type": "frame", "hos_level": "F2"})
+
+    # --- Au-dessus de la trappe : comble perdu (dessus des plafonds du 2e), passerelle en
+    # planches, echelle vers une chatiere percee dans le toit. Le toit descend vers le nord :
+    # a y = 25.3 sa sous-face est a ~12.5 m, soit 1.7 m au-dessus du dessus des plafonds (10.8).
+    attic_floor = F2.ceiling_z + SLAB                                  # 10.8
+    walk = MeshAcc()
+    walk.box(41.0, 44.0, 23.98, 24.3, attic_floor, attic_floor + 0.05)   # planches au bord nord de la trappe (le trou reste libre)
+    walk.box(40.6, 41.0, 22.9, 24.3, attic_floor, attic_floor + 0.05)
+    walk.finish("F2_Attic_Walkway", DETAIL_COLL % "SECOND_FLOOR", "M_Wood_Worn", {"hos_type": "floor", "hos_level": "F2", "hos_room": "Comble"})
+    # Echelle de meunier a 45 degres (1.7 m de montee sur 1.7 m), palier au niveau du dessus du
+    # toit au bord nord du trou (12.49) : on sort sur le toit de plain-pied.
+    attic_top = attic_floor + 1.7                                      # 12.5
+    reports_attic = build_stair_straight((43.0, 44.0, 24.2, 25.9), attic_floor, attic_top, "SECOND_FLOOR", "M_Wood_Worn",
+                                         "F2_Stairs_Attic", direction="N")
+    ramp2 = MeshAcc()
+    ramp2.bar((43.5, 24.2), (43.5, 25.9), attic_floor + 0.17, attic_top, 1.0, 0.05)
+    ramp2.finish("F2_Stairs_Attic_Ramp", "SECOND_FLOOR/Stairs", "M_Wood_Worn", {"hos_type": "stairs_ramp", "hos_level": "F2", "hos_collider_only": True})
+    landing = MeshAcc()
+    landing.box(43.0, 44.0, 25.9, 26.6, attic_top - 0.05, attic_top)   # palier dans le trou du toit
+    landing.box(43.05, 43.15, 26.4, 26.5, attic_floor, attic_top - 0.05)   # poteaux
+    landing.box(43.85, 43.95, 26.4, 26.5, attic_floor, attic_top - 0.05)
+    landing.finish("F2_Attic_Landing", DETAIL_COLL % "SECOND_FLOOR", "M_Wood_Worn", {"hos_type": "floor", "hos_level": "F2", "hos_room": "Comble"})
+    # chatiere : trou dans le toit au-dessus de l'echelle (assez long vers le sud pour la tete
+    # du joueur qui monte), cadre bas en bois pose sur le toit (15 cm, enjambable), panneau (trapdoor)
+    cut_roof_hole(42.9, 44.1, 24.2, 26.6)
+    top = 0.35                                    # epaisseur du toit (Solidify)
+    z_s, z_n = roof_height_at(24.2) + top, roof_height_at(26.6) + top   # dessus du toit aux deux bords du trou
+    fr2 = MeshAcc()
+    fr2.box(42.8, 44.2, 24.1, 24.2, z_s, z_s + 0.15)                       # bord haut (sud), pose sur le toit
+    fr2.box(42.8, 44.2, 26.6, 26.7, z_n, z_n + 0.15)                       # bord bas (nord)
+    fr2.bar((42.85, 24.1), (42.85, 26.7), z_s, z_n, 0.1, 0.15)             # joues, le long de la pente
+    fr2.bar((44.15, 24.1), (44.15, 26.7), z_s, z_n, 0.1, 0.15)
+    fr2.finish("EXT_RoofHatch_Frame", "EXTERIOR/Roof", "M_Wood_Worn", {"hos_type": "decor"})
+    hatch = MeshAcc()
+    hatch.bar((43.5, 24.2), (43.5, 26.6), z_s + 0.16, z_n + 0.16, 1.2, 0.05)   # panneau incline pose sur le cadre
+    hatch_obj = hatch.finish("EXT_Door_RoofHatch", "EXTERIOR/Doors", "M_Wood_Worn",
+                             {"hos_type": "door", "hos_door": "trapdoor", "hos_rooms": "Comble | toit", "hos_level": "F2",
+                              "hos_swing": 1, "hos_open_angle": 85, "hos_width": 1.2, "hos_height": 2.4})
+    hatch_obj.data.transform(mathutils.Matrix.Translation((-43.5, -24.2, -(z_s + 0.16))))
+    hatch_obj.location = (43.5, 24.2, z_s + 0.16)   # gond sur le bord sud (cote faitage), s'ouvre vers le haut
 
     # Rampe de collision invisible sur l'echelle du grenier : ses girons de 0.2 m font
     # buter un CharacterController, la rampe (41 degres < slopeLimit 55) le laisse monter.
     ramp = MeshAcc()
-    ramp.bar((40.8, 23.4), (43.8, 23.4), F2.z + 0.175, F2.ceiling_z, 1.2, 0.05)
+    ramp.bar((40.8, 23.4), (44.0, 23.4), F2.z + 0.175, F2.ceiling_z + SLAB, 1.2, 0.05)   # finit au niveau du plancher du comble
     ramp.finish("F2_Stairs_Grenier_Ramp", "SECOND_FLOOR/Stairs", "M_Wood_Worn",
                 {"hos_type": "stairs_ramp", "hos_level": "F2", "hos_collider_only": True})
-    return "Placard sous escalier + trappe du grenier + rampe de collision de l'echelle"
+    return "Placard sous escalier + trappe du grenier + comble perdu + chatiere de toit (" + reports_attic + ")"
+
+
+def roof_height_at(y, x=43.5):
+    """Sous-face du toit principal (4 pentes a 35 degres, egout a F2.ext_top, debord 0.8)."""
+    z_eave = 7.8 + 1.4
+    slope = math.tan(math.radians(35))
+    return z_eave + slope * min(x + 0.8, 52.8 - x, y + 0.8, 30.8 - y)
+
+
+def cut_roof_hole(x0, x1, y0, y1):
+    """Perce le toit principal (booleen applique) pour la chatiere."""
+    roof = bpy.data.objects.get("EXT_Roof_Main")
+    if roof is None:
+        return
+    cutter = bpy.data.meshes.new("RoofCutter")
+    v, f = box_geometry(x0, x1, y0, y1, 5.0, 30.0)
+    cutter.from_pydata(v, [], f)
+    cutter.update()
+    cutter_obj = bpy.data.objects.new("RoofCutter", cutter)
+    bpy.context.scene.collection.objects.link(cutter_obj)
+    mod = roof.modifiers.new("Hatch", "BOOLEAN")
+    mod.operation = "DIFFERENCE"
+    mod.object = cutter_obj
+    mod.solver = "EXACT"
+    # appliquer tous les modificateurs du toit (solidify puis booleen) via le depsgraph
+    dg = bpy.context.evaluated_depsgraph_get()
+    evaluated = roof.evaluated_get(dg)
+    mesh = bpy.data.meshes.new_from_object(evaluated)
+    old = roof.data
+    roof.modifiers.clear()
+    roof.data = mesh
+    mesh.materials.clear()
+    mesh.materials.append(get_material("M_Roof_Tiles"))
+    bpy.data.meshes.remove(old)
+    bpy.data.objects.remove(cutter_obj, do_unlink=True)
+    bpy.data.meshes.remove(cutter)
 
 
 # =============================================================================
@@ -332,7 +409,7 @@ def verify_circulation(levels):
                 if clear < worst[0]:
                     worst = (clear, (round(px, 2), round(py, 2), round(z1, 2), hit.name if ok else None))
         min_head[obj.name] = worst
-        if worst[0] < 2.0 and "Grenier" not in obj.name:      # l'echelle du grenier bute volontairement sur la trappe
+        if worst[0] < 2.0 and "Grenier" not in obj.name and "Attic" not in obj.name:      # l'echelle du grenier bute volontairement sur la trappe
             issues.append("Hauteur libre %.2f m sur %s en %s (obstacle %s)" % (worst[0], obj.name, worst[1][:3], worst[1][3]))
             make_empty("GP_Issue_Headroom_%s" % obj.name, "GAMEPLAY_OBJECTS/Issues", (worst[1][0], worst[1][1], worst[1][2] + 1.0),
                        props={"hos_issue": "headroom", "hos_value": worst[0]}, size=0.5)

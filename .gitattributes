@@ -169,3 +169,6 @@ Packages/packages-lock.json linguist-generated
 
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
+
+# Donnees de terrain des packs (171 Mo pour Realistic Terrain Textures Lite) : au-dela de la limite GitHub
+Assets/ObjectiveEnvironment_Assets/**/TerrainDATA/*.asset lfs

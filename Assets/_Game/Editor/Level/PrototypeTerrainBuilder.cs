@@ -50,14 +50,20 @@ namespace HouseOfSilence.EditorTools.Level
         /// <summary>Construit le terrain complet et le renvoie.</summary>
         public static Terrain Build(Transform parent)
         {
+            return Build(parent, TerrainDataPath);
+        }
+
+        /// <summary>Meme terrain, mais avec son propre asset TerrainData (le manoir a ses propres trous).</summary>
+        public static Terrain Build(Transform parent, string dataPath)
+        {
             Random.InitState(Seed);
 
-            TerrainData data = AssetDatabase.LoadAssetAtPath<TerrainData>(TerrainDataPath);
+            TerrainData data = AssetDatabase.LoadAssetAtPath<TerrainData>(dataPath);
 
             if (data == null)
             {
                 data = new TerrainData();
-                AssetDatabase.CreateAsset(data, TerrainDataPath);
+                AssetDatabase.CreateAsset(data, dataPath);
             }
 
             data.heightmapResolution = 513;
