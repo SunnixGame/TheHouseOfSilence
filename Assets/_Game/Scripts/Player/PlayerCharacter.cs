@@ -114,6 +114,12 @@ namespace HouseOfSilence.Player
             {
                 gameObject.AddComponent<SurvivorBodyAnimator>();
             }
+
+            // A la mort, le corps tombe en ragdoll.
+            if (GetComponent<SurvivorRagdoll>() == null)
+            {
+                gameObject.AddComponent<SurvivorRagdoll>();
+            }
         }
 
         private void OnEnable()

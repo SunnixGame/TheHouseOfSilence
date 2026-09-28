@@ -1,4 +1,5 @@
 using System;
+using HouseOfSilence.Player;
 using UnityEngine;
 
 namespace HouseOfSilence.Demon
@@ -8,6 +9,7 @@ namespace HouseOfSilence.Demon
     /// le survivant se tourne vers son tueur et son corps joue l'animation de mort
     /// (declencheur "Die"). Revive() le remet debout (declencheur "Revive") ; pour les
     /// tests, PlayableCharacterSwitcher le ressuscite quand on repasse au survivant (F2).
+    /// Avec un SurvivorRagdoll, le corps tombe en ragdoll au lieu de jouer l'animation.
     /// </summary>
     [DisallowMultipleComponent]
     public class SurvivorDeath : MonoBehaviour
@@ -17,8 +19,19 @@ namespace HouseOfSilence.Demon
         [SerializeField] private string reviveTrigger = "Revive";
 
         private float _dieAt = -1f;
+        private Transform _killer;
+        private SurvivorRagdoll _ragdoll;
 
         public bool IsDead { get; private set; }
+
+        private SurvivorRagdoll Ragdoll
+        {
+            get
+            {
+                if (_ragdoll == null) _ragdoll = GetComponent<SurvivorRagdoll>();
+                return _ragdoll;
+            }
+        }
 
         /// <summary>Declenche a la mort (avant l'animation) : tueur en parametre.</summary>
         public event Action<Transform> Killed;
@@ -29,6 +42,7 @@ namespace HouseOfSilence.Demon
             if (IsDead) return;
 
             IsDead = true;
+            _killer = killer;
 
             if (killer != null)
             {
@@ -47,6 +61,13 @@ namespace HouseOfSilence.Demon
 
             IsDead = false;
             _dieAt = -1f;
+            _killer = null;
+
+            if (Ragdoll != null && Ragdoll.IsActive)
+            {
+                Ragdoll.Deactivate();
+                return;
+            }
 
             if (bodyAnimator != null && bodyAnimator.isActiveAndEnabled)
             {
@@ -60,6 +81,11 @@ namespace HouseOfSilence.Demon
             if (_dieAt >= 0f && Time.time >= _dieAt)
             {
                 _dieAt = -1f;
+
+                if (Ragdoll != null && Ragdoll.Activate(_killer))
+                {
+                    return;
+                }
 
                 if (bodyAnimator != null && bodyAnimator.isActiveAndEnabled)
                 {

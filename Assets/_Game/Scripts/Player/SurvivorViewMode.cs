@@ -50,6 +50,7 @@ namespace HouseOfSilence.Player
         private bool _wantThirdPerson;
         private bool _applied;
         private float _currentDistance;
+        private Transform _deathFocus;
 
         /// <summary>La vue TPS est reellement active cette frame.</summary>
         public bool IsThirdPerson { get { return _applied; } }
@@ -117,6 +118,15 @@ namespace HouseOfSilence.Player
             _wantThirdPerson = thirdPerson;
         }
 
+        /// <summary>
+        /// Mort (ragdoll) : force la vue TPS, centree sur 'focus' (le bassin du corps).
+        /// null rend la vue choisie par le joueur.
+        /// </summary>
+        public void SetDeathFocus(Transform focus)
+        {
+            _deathFocus = focus;
+        }
+
         private void LateUpdate()
         {
             bool inputAllowed = _input == null || _input.InputEnabled;
@@ -131,7 +141,7 @@ namespace HouseOfSilence.Player
 
             // Survivant fige (on joue le demon) : retour FPS, mais le corps reste
             // gere par qui l'a fige (PlayableCharacterSwitcher l'affiche deja).
-            bool active = _wantThirdPerson && controllable;
+            bool active = (_wantThirdPerson || _deathFocus != null) && controllable;
             Apply(active, controllable);
 
             if (active)
@@ -169,7 +179,9 @@ namespace HouseOfSilence.Player
         private void PlaceCamera()
         {
             Quaternion rotation = _pivot.rotation;
-            Vector3 origin = _pivot.position + Vector3.up * heightOffset;
+            Vector3 origin = _deathFocus != null
+                ? _deathFocus.position + Vector3.up * 0.5f // le corps est au sol : on tourne autour
+                : _pivot.position + Vector3.up * heightOffset;
             Vector3 desired = origin + rotation * new Vector3(shoulderOffset, 0f, -distance);
 
             Vector3 dir = desired - origin;
