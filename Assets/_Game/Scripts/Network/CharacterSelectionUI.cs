@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HouseOfSilence.Demon;
 using HouseOfSilence.Player;
 using UnityEngine;
 
@@ -7,40 +8,79 @@ namespace HouseOfSilence.Network
     /// <summary>
     /// Menus du multijoueur (HUD local) :
     ///  - accueil : nom du joueur, creer une partie, rejoindre avec un code, jouer en solo ;
-    ///  - lobby : code de la partie (a copier), joueurs connectes, choix du personnage et
-    ///    du role souhaite (Demon / Survivant / Peu importe), lancement par l'hote seul ;
+    ///  - lobby : code de la partie (a copier), joueurs et bots IA, selection du personnage
+    ///    par portrait (rendu du modele, CharacterPortraits), role souhaite (Demon /
+    ///    Survivant / Peu importe) ; l'hote ajoute ou retire des bots et lance la partie ;
     ///  - chargement.
     /// Les choix sont des preferences : c'est l'hote qui attribue les roles (RoleManager).
     /// </summary>
     [DisallowMultipleComponent]
     public class CharacterSelectionUI : MonoBehaviour
     {
+        private class Choice
+        {
+            public string Name;
+            public Texture Portrait;
+        }
+
+        private const float CardWidth = 118f;
+        private const float PortraitHeight = 148f;
+
         private NetworkGameManager _game;
         private LobbyManager _lobby;
+        private CharacterPortraits _portraits;
         private string _nameField;
         private string _codeField = "";
-        private readonly List<string> _survivorNames = new List<string>();
+
+        private readonly List<Choice> _survivors = new List<Choice>();
+        private Texture _demonPortrait;
+        private PlayableCharacterSwitcher _preparedFor;
+
+        // Clics appliques apres le dessin (changer la liste pendant OnGUI casse la mise en page).
+        private readonly List<System.Action> _actions = new List<System.Action>();
 
         private GUIStyle _titleStyle;
         private GUIStyle _textStyle;
         private GUIStyle _smallStyle;
         private GUIStyle _codeStyle;
+        private GUIStyle _cardNameStyle;
 
         private void Awake()
         {
             _game = GetComponent<NetworkGameManager>();
             _lobby = GetComponent<LobbyManager>();
+            _portraits = GetComponent<CharacterPortraits>();
         }
 
-        private void RefreshSurvivorNames()
+        private void Update()
         {
-            _survivorNames.Clear();
-            if (_game.Switcher == null) return;
+            if (_actions.Count > 0)
+            {
+                List<System.Action> actions = new List<System.Action>(_actions);
+                _actions.Clear();
+                foreach (System.Action a in actions) a();
+            }
+
+            // Portraits prepares hors OnGUI (rendu 3D), une fois par scene.
+            if (_game.Phase == NetPhase.Lobby && _game.Switcher != null && _preparedFor != _game.Switcher)
+            {
+                PrepareChoices();
+            }
+        }
+
+        private void PrepareChoices()
+        {
+            _preparedFor = _game.Switcher;
+            _survivors.Clear();
+            _demonPortrait = null;
 
             foreach (Component c in _game.Switcher.Characters())
             {
+                Texture portrait = _portraits != null ? _portraits.Get(c) : null;
                 PlayerCharacter survivor = c as PlayerCharacter;
-                if (survivor != null) _survivorNames.Add(survivor.DisplayName);
+
+                if (survivor != null) _survivors.Add(new Choice { Name = survivor.DisplayName, Portrait = portrait });
+                else _demonPortrait = portrait;
             }
         }
 
@@ -52,18 +92,19 @@ namespace HouseOfSilence.Network
             EnsureStyles();
             if (_nameField == null) _nameField = _lobby.LocalName;
 
-            float w = phase == NetPhase.Lobby ? 620f : 460f;
-            float h = phase == NetPhase.Lobby ? 520f : 330f;
+            bool lobby = phase == NetPhase.Lobby;
+            float w = lobby ? Mathf.Min(Screen.width - 40f, 780f) : 460f;
+            float h = lobby ? Mathf.Min(Screen.height - 40f, 700f) : 330f;
             Rect box = new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h);
 
             Color previous = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.88f);
+            GUI.color = new Color(0f, 0f, 0f, 0.9f);
             GUI.DrawTexture(box, Texture2D.whiteTexture);
             GUI.color = previous;
 
-            GUILayout.BeginArea(new Rect(box.x + 20f, box.y + 16f, w - 40f, h - 32f));
+            GUILayout.BeginArea(new Rect(box.x + 20f, box.y + 14f, w - 40f, h - 28f));
             GUILayout.Label("THE HOUSE OF SILENCE", _titleStyle);
-            GUILayout.Space(8f);
+            GUILayout.Space(6f);
 
             switch (phase)
             {
@@ -82,6 +123,10 @@ namespace HouseOfSilence.Network
             GUILayout.EndArea();
         }
 
+        // ------------------------------------------------------------------
+        // Accueil
+        // ------------------------------------------------------------------
+
         private void DrawMenu()
         {
             GUILayout.Label("Votre nom :", _textStyle);
@@ -91,7 +136,7 @@ namespace HouseOfSilence.Network
             if (GUILayout.Button("Creer une partie (vous etes l'hote)", GUILayout.Height(34f)))
             {
                 ApplyName();
-                _lobby.CreateGame();
+                _actions.Add(_lobby.CreateGame);
             }
 
             GUILayout.Space(8f);
@@ -101,12 +146,13 @@ namespace HouseOfSilence.Network
             if (GUILayout.Button("Rejoindre", GUILayout.Height(24f)))
             {
                 ApplyName();
-                _lobby.JoinGame(_codeField);
+                string code = _codeField;
+                _actions.Add(() => _lobby.JoinGame(code));
             }
             GUILayout.EndHorizontal();
 
             GUILayout.Space(10f);
-            if (GUILayout.Button("Jouer en solo", GUILayout.Height(28f))) _game.PlaySolo();
+            if (GUILayout.Button("Jouer en solo", GUILayout.Height(28f))) _actions.Add(_game.PlaySolo);
         }
 
         private void ApplyName()
@@ -118,12 +164,16 @@ namespace HouseOfSilence.Network
         private void DrawConnecting()
         {
             GUILayout.Label("Connexion...", _textStyle);
-            if (GUILayout.Button("Annuler", GUILayout.Height(28f))) _lobby.Leave("");
+            if (GUILayout.Button("Annuler", GUILayout.Height(28f))) _actions.Add(() => _lobby.Leave(""));
         }
+
+        // ------------------------------------------------------------------
+        // Lobby
+        // ------------------------------------------------------------------
 
         private void DrawLobby()
         {
-            if (_survivorNames.Count == 0) RefreshSurvivorNames();
+            bool host = _game.IsHost;
 
             // Code a partager.
             GUILayout.BeginHorizontal();
@@ -134,31 +184,33 @@ namespace HouseOfSilence.Network
                 GUIUtility.systemCopyBuffer = _lobby.JoinCode;
             }
             GUILayout.EndHorizontal();
-            GUILayout.Space(6f);
+            GUILayout.Space(4f);
 
-            // Joueurs connectes.
-            GUILayout.Label("Joueurs (" + _lobby.Players.Count + " / " + _game.MaxPlayers + ")", _textStyle);
-            foreach (LobbyPlayer p in _lobby.Players)
-            {
-                string host = p.ClientId == 0 ? "  [hote]" : "";
-                string me = p.ClientId == _game.LocalId ? "  (vous)" : "";
-                GUILayout.Label("•  " + p.Name + host + me + "   —   " + CharacterLabel(p.CharacterPref) + "  ·  " + RoleLabel(p.RolePref), _smallStyle);
-            }
+            DrawPlayers(host);
+            GUILayout.Space(8f);
 
-            GUILayout.Space(10f);
-
-            // Mes choix.
-            GUILayout.Label("Personnage souhaite (si vous etes survivant) :", _textStyle);
+            // Selection du personnage (portraits).
+            GUILayout.Label("Votre personnage (si vous etes survivant) :", _textStyle);
             GUILayout.BeginHorizontal();
             int character = _lobby.LocalCharacterPref;
-            if (Toggle(character == -1, "Peu importe")) character = -1;
-            for (int i = 0; i < _survivorNames.Count; i++)
+            if (Card(character == -1, "Peu importe", null, WhoWants(-1))) character = -1;
+            for (int i = 0; i < _survivors.Count; i++)
             {
-                if (Toggle(character == i, _survivorNames[i])) character = i;
+                if (Card(character == i, _survivors[i].Name, _survivors[i].Portrait, WhoWants(i))) character = i;
             }
             GUILayout.EndHorizontal();
 
-            GUILayout.Space(6f);
+            GUILayout.Space(8f);
+
+            // Role souhaite, avec le portrait du demon.
+            GUILayout.BeginHorizontal();
+            if (_demonPortrait != null)
+            {
+                Rect r = GUILayoutUtility.GetRect(52f, 64f, GUILayout.Width(52f), GUILayout.Height(64f));
+                GUI.DrawTexture(r, _demonPortrait, ScaleMode.ScaleAndCrop);
+            }
+
+            GUILayout.BeginVertical();
             GUILayout.Label("Role souhaite :", _textStyle);
             GUILayout.BeginHorizontal();
             RolePreference role = _lobby.LocalRolePref;
@@ -166,25 +218,109 @@ namespace HouseOfSilence.Network
             if (Toggle(role == RolePreference.Demon, "Demon")) role = RolePreference.Demon;
             if (Toggle(role == RolePreference.Survivor, "Survivant")) role = RolePreference.Survivor;
             GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
 
             if (character != _lobby.LocalCharacterPref || role != _lobby.LocalRolePref)
             {
-                _lobby.SetPreferences(_lobby.LocalName, character, role);
+                _actions.Add(() => _lobby.SetPreferences(_lobby.LocalName, character, role));
             }
 
-            GUILayout.Label("Un seul demon ; l'hote l'attribue en respectant au mieux les souhaits.", _smallStyle);
-            GUILayout.Space(10f);
+            GUILayout.Label("Un seul demon ; l'hote l'attribue en respectant au mieux les souhaits. Deux joueurs sur le meme personnage : tirage au sort.", _smallStyle);
+            GUILayout.FlexibleSpace();
 
-            if (_game.IsHost)
+            if (host)
             {
-                if (GUILayout.Button("Lancer la partie", GUILayout.Height(36f))) _game.LaunchRound();
+                if (GUILayout.Button("Lancer la partie", GUILayout.Height(36f))) _actions.Add(_game.LaunchRound);
             }
             else
             {
                 GUILayout.Label("En attente du lancement par l'hote...", _textStyle);
             }
 
-            if (GUILayout.Button("Quitter", GUILayout.Height(26f))) _lobby.Leave("");
+            if (GUILayout.Button("Quitter", GUILayout.Height(26f))) _actions.Add(() => _lobby.Leave(""));
+        }
+
+        private void DrawPlayers(bool host)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Joueurs (" + _lobby.Players.Count + " / " + _game.MaxPlayers + ")", _textStyle);
+            GUILayout.FlexibleSpace();
+            if (host && _lobby.Players.Count < _game.MaxPlayers && GUILayout.Button("+ Ajouter un bot (IA)", GUILayout.Width(170f), GUILayout.Height(24f)))
+            {
+                _actions.Add(_lobby.AddBot);
+            }
+            GUILayout.EndHorizontal();
+
+            foreach (LobbyPlayer p in _lobby.Players)
+            {
+                GUILayout.BeginHorizontal();
+
+                string tag = p.IsBot ? "  [IA]" : p.ClientId == 0 ? "  [hote]" : "";
+                string me = !p.IsBot && p.ClientId == _game.LocalId ? "  (vous)" : "";
+                GUILayout.Label("•  " + p.Name + tag + me + "   —   " + CharacterLabel(p.CharacterPref) + "  ·  " + RoleLabel(p.RolePref), _smallStyle);
+
+                if (host && p.IsBot)
+                {
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button(BotRoleButton(p.RolePref), GUILayout.Width(150f), GUILayout.Height(20f)))
+                    {
+                        ulong id = p.ClientId;
+                        RolePreference next = (RolePreference)(((int)p.RolePref + 1) % 3);
+                        _actions.Add(() => _lobby.SetBotRole(id, next));
+                    }
+                    ulong botId = p.ClientId;
+                    if (GUILayout.Button("Retirer", GUILayout.Width(70f), GUILayout.Height(20f))) _actions.Add(() => _lobby.RemoveBot(botId));
+                }
+
+                GUILayout.EndHorizontal();
+            }
+        }
+
+        /// <summary>Carte cliquable : portrait (ou "?"), nom, joueurs qui l'ont choisie.</summary>
+        private bool Card(bool selected, string label, Texture portrait, string wanted)
+        {
+            GUILayout.BeginVertical(GUILayout.Width(CardWidth));
+
+            Rect r = GUILayoutUtility.GetRect(CardWidth, PortraitHeight, GUILayout.Width(CardWidth), GUILayout.Height(PortraitHeight));
+            Color previous = GUI.color;
+            GUI.color = selected ? new Color(0.95f, 0.3f, 0.2f, 1f) : new Color(0.25f, 0.22f, 0.22f, 1f);
+            GUI.DrawTexture(new Rect(r.x - 3f, r.y - 3f, r.width + 6f, r.height + 6f), Texture2D.whiteTexture);
+            GUI.color = previous;
+
+            if (portrait != null)
+            {
+                GUI.DrawTexture(r, portrait, ScaleMode.ScaleAndCrop);
+            }
+            else
+            {
+                GUI.color = new Color(0.08f, 0.06f, 0.06f, 1f);
+                GUI.DrawTexture(r, Texture2D.whiteTexture);
+                GUI.color = previous;
+                GUI.Label(r, "?", _codeStyle);
+            }
+
+            bool clicked = GUI.Button(r, GUIContent.none, GUIStyle.none);
+
+            GUILayout.Label(label, _cardNameStyle, GUILayout.Width(CardWidth));
+            if (!string.IsNullOrEmpty(wanted)) GUILayout.Label(wanted, _smallStyle, GUILayout.Width(CardWidth));
+
+            GUILayout.EndVertical();
+            GUILayout.Space(8f);
+            return clicked && !selected;
+        }
+
+        /// <summary>Noms des autres joueurs qui souhaitent ce personnage.</summary>
+        private string WhoWants(int character)
+        {
+            string names = "";
+            foreach (LobbyPlayer p in _lobby.Players)
+            {
+                if (p.CharacterPref != character || (!p.IsBot && p.ClientId == _game.LocalId)) continue;
+                names += (names.Length > 0 ? ", " : "") + p.Name;
+            }
+
+            return names;
         }
 
         private static bool Toggle(bool on, string label)
@@ -194,13 +330,18 @@ namespace HouseOfSilence.Network
 
         private string CharacterLabel(int index)
         {
-            if (index < 0 || index >= _survivorNames.Count) return "perso : peu importe";
-            return "perso : " + _survivorNames[index];
+            if (index < 0 || index >= _survivors.Count) return "perso : peu importe";
+            return "perso : " + _survivors[index].Name;
         }
 
         private static string RoleLabel(RolePreference pref)
         {
             return pref == RolePreference.Demon ? "veut etre Demon" : pref == RolePreference.Survivor ? "veut etre Survivant" : "role : peu importe";
+        }
+
+        private static string BotRoleButton(RolePreference pref)
+        {
+            return pref == RolePreference.Demon ? "Bot : Demon" : pref == RolePreference.Survivor ? "Bot : Survivant" : "Bot : peu importe";
         }
 
         private void EnsureStyles()
@@ -213,8 +354,10 @@ namespace HouseOfSilence.Network
             _textStyle.normal.textColor = new Color(0.9f, 0.88f, 0.84f);
             _smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, wordWrap = true };
             _smallStyle.normal.textColor = new Color(0.75f, 0.72f, 0.68f);
-            _codeStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold };
+            _codeStyle = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             _codeStyle.normal.textColor = new Color(1f, 0.85f, 0.4f);
+            _cardNameStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter };
+            _cardNameStyle.normal.textColor = new Color(0.92f, 0.9f, 0.86f);
         }
     }
 }

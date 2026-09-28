@@ -23,6 +23,11 @@ namespace HouseOfSilence.Network
         private const string RejectMessage = "HOS_Reject";
         private const string NameKey = "hos_player_name";
 
+        /// <summary>Identifiants des bots : tres au-dessus de ceux de Netcode (0, 1, 2...).</summary>
+        public const ulong BotIdBase = 1UL << 40;
+
+        private int _botCounter;
+
         private NetworkGameManager _game;
         private ISession _session;
         private float _nextRoster;
@@ -182,6 +187,7 @@ namespace HouseOfSilence.Network
             _session = null;
             Players.Clear();
             JoinCode = "";
+            _botCounter = 0;
             _game.OnLeftOnline(reason);
 
             try
@@ -256,11 +262,70 @@ namespace HouseOfSilence.Network
             BroadcastRoster();
         }
 
+        // ------------------------------------------------------------------
+        // Bots (IA)
+        // ------------------------------------------------------------------
+
+        public static bool IsBotId(ulong id)
+        {
+            return id >= BotIdBase;
+        }
+
+        /// <summary>Hote : ajoute un bot IA (un personnage de plus joue par l'ordinateur).</summary>
+        public void AddBot()
+        {
+            if (!_game.IsHost || _game.Phase != NetPhase.Lobby || Players.Count >= _game.MaxPlayers) return;
+
+            _botCounter++;
+            Players.Add(new LobbyPlayer
+            {
+                ClientId = BotIdBase + (ulong)_botCounter,
+                Name = "Bot " + _botCounter,
+                RolePref = RolePreference.Any,
+                IsBot = true
+            });
+            BroadcastRoster();
+        }
+
+        public void RemoveBot(ulong id)
+        {
+            if (!_game.IsHost || !IsBotId(id)) return;
+
+            LobbyPlayer p = Find(id);
+            if (p == null) return;
+
+            Players.Remove(p);
+            BroadcastRoster();
+        }
+
+        /// <summary>Hote : change le role souhaite d'un bot.</summary>
+        public void SetBotRole(ulong id, RolePreference role)
+        {
+            if (!_game.IsHost) return;
+
+            LobbyPlayer p = Find(id);
+            if (p == null || !p.IsBot) return;
+
+            p.RolePref = role;
+            BroadcastRoster();
+        }
+
         /// <summary>Hote : un joueur arrive. Refuse si la partie est deja lancee.</summary>
         public void OnClientJoined(ulong clientId)
         {
             if (!_game.IsHost || clientId == _game.LocalId) return;
-            if (_game.Phase == NetPhase.Lobby) return; // il va envoyer ses preferences
+
+            if (_game.Phase == NetPhase.Lobby)
+            {
+                // Lobby plein a cause des bots : un bot laisse sa place a l'humain.
+                if (Players.Count >= _game.MaxPlayers)
+                {
+                    LobbyPlayer bot = Players.FindLast(x => x.IsBot);
+                    if (bot != null) Players.Remove(bot);
+                }
+
+                return; // il va envoyer ses preferences
+            }
 
             using (FastBufferWriter w = new FastBufferWriter(64, Allocator.Temp))
             {
@@ -300,6 +365,7 @@ namespace HouseOfSilence.Network
                     w.WriteValueSafe(p.Name);
                     w.WriteValueSafe((short)p.CharacterPref);
                     w.WriteValueSafe((byte)p.RolePref);
+                    w.WriteValueSafe(p.IsBot);
                 }
 
                 _game.SendToAll(RosterMessage, w);
@@ -326,7 +392,9 @@ namespace HouseOfSilence.Network
                 r.ReadValueSafe(out playerName);
                 r.ReadValueSafe(out character);
                 r.ReadValueSafe(out role);
-                Players.Add(new LobbyPlayer { ClientId = id, Name = playerName, CharacterPref = character, RolePref = (RolePreference)role });
+                bool bot;
+                r.ReadValueSafe(out bot);
+                Players.Add(new LobbyPlayer { ClientId = id, Name = playerName, CharacterPref = character, RolePref = (RolePreference)role, IsBot = bot });
             }
 
             if (!string.IsNullOrEmpty(code)) JoinCode = code;
@@ -348,7 +416,8 @@ namespace HouseOfSilence.Network
             List<LobbyPlayer> list = new List<LobbyPlayer>();
             foreach (LobbyPlayer p in Players)
             {
-                if (ids.Contains(p.ClientId)) list.Add(p);
+                // Les bots tournent chez l'hote : toujours prets.
+                if (p.IsBot || ids.Contains(p.ClientId)) list.Add(p);
             }
 
             return list;

@@ -26,6 +26,8 @@ namespace HouseOfSilence.Network
         /// <summary>Survivant souhaite (index parmi les survivants), -1 = peu importe.</summary>
         public int CharacterPref = -1;
         public RolePreference RolePref = RolePreference.Any;
+        /// <summary>Bot controle par l'IA, sur la machine de l'hote.</summary>
+        public bool IsBot;
     }
 
     /// <summary>

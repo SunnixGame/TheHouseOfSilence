@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using HouseOfSilence.AI;
 using HouseOfSilence.Core;
 using HouseOfSilence.Demon;
 using HouseOfSilence.Level;
@@ -154,6 +155,7 @@ namespace HouseOfSilence.Network
             GameState = GetOrAdd<GameStateManager>();
             TimeOfDay = GetOrAdd<NetworkTimeOfDay>();
             GetOrAdd<PlayerListUI>();
+            GetOrAdd<CharacterPortraits>();
             GetOrAdd<CharacterSelectionUI>();
 
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -252,10 +254,16 @@ namespace HouseOfSilence.Network
                 BeginRound(); // les retardataires sont ignores
             }
 
-            if (Phase == NetPhase.Playing && MyIndex >= 0 && Time.unscaledTime >= _nextState)
+            if (Phase == NetPhase.Playing && Time.unscaledTime >= _nextState)
             {
                 _nextState = Time.unscaledTime + 1f / statesPerSecond;
-                SendMyState();
+                if (MyIndex >= 0) SendState(MyIndex);
+
+                // L'hote envoie aussi les personnages de ses bots.
+                if (IsHost)
+                {
+                    foreach (KeyValuePair<int, PlayerRole> bot in GameState.BotCharacters()) SendState(bot.Key);
+                }
             }
         }
 
@@ -575,6 +583,7 @@ namespace HouseOfSilence.Network
             }
 
             if (Switcher != null) Switcher.ControlOnly(Characters[MyIndex]);
+            if (IsHost) SetupBots();
 
             GameState.SetLocalRole(Characters[MyIndex] is DemonController ? PlayerRole.Demon : PlayerRole.Survivor);
             TimeOfDay.Begin();
@@ -587,6 +596,23 @@ namespace HouseOfSilence.Network
             SetAllInput(true);
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
+        }
+
+        /// <summary>Hote : l'IA prend les personnages des bots (les autres joueurs les voient via le reseau).</summary>
+        private void SetupBots()
+        {
+            foreach (KeyValuePair<int, PlayerRole> bot in GameState.BotCharacters())
+            {
+                if (bot.Key < 0 || bot.Key >= Characters.Count || bot.Key == MyIndex) continue;
+
+                Component c = Characters[bot.Key];
+                NetPuppet puppet = c.GetComponent<NetPuppet>();
+                if (puppet != null) Destroy(puppet);
+
+                BotBrain brain = c.GetComponent<BotBrain>();
+                if (brain == null) brain = c.gameObject.AddComponent<BotBrain>();
+                brain.Setup(bot.Value == PlayerRole.Demon);
+            }
         }
 
         private static void Place(Component c, Vector3 position, float yaw)
@@ -631,6 +657,8 @@ namespace HouseOfSilence.Network
                 if (c == null) continue;
                 NetPuppet puppet = c.GetComponent<NetPuppet>();
                 if (puppet != null) Destroy(puppet);
+                BotBrain brain = c.GetComponent<BotBrain>();
+                if (brain != null) Destroy(brain);
             }
 
             if (Switcher != null) Switcher.Unlock();
@@ -649,11 +677,12 @@ namespace HouseOfSilence.Network
         // Etat des personnages (~20 fois par seconde)
         // ------------------------------------------------------------------
 
-        private void SendMyState()
+        /// <summary>Etat d'un personnage joue ici (le notre, ou celui d'un bot chez l'hote).</summary>
+        private void SendState(int index)
         {
-            if (MyIndex < 0 || MyIndex >= Characters.Count) return;
+            if (index < 0 || index >= Characters.Count) return;
 
-            Component c = Characters[MyIndex];
+            Component c = Characters[index];
             if (c == null) return;
 
             float pitch = 0f;
@@ -670,7 +699,7 @@ namespace HouseOfSilence.Network
 
             using (FastBufferWriter w = new FastBufferWriter(32, Allocator.Temp))
             {
-                WriteState(w, (byte)MyIndex, c.transform.position, c.transform.eulerAngles.y, pitch, flags);
+                WriteState(w, (byte)index, c.transform.position, c.transform.eulerAngles.y, pitch, flags);
                 if (IsHost) SendToOthers(LocalId, StateMessage, w, NetworkDelivery.UnreliableSequenced);
                 else SendToServer(StateMessage, w, NetworkDelivery.UnreliableSequenced);
             }

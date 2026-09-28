@@ -55,6 +55,7 @@ namespace HouseOfSilence.Network
             public PlayerRole Role;
             public bool Alive = true;
             public bool Connected = true;
+            public bool IsBot;
         }
 
         private NetworkGameManager _game;
@@ -108,9 +109,12 @@ namespace HouseOfSilence.Network
             foreach (KeyValuePair<ulong, int> a in assignments)
             {
                 string playerName = "Joueur";
+                bool bot = false;
                 foreach (LobbyPlayer p in players)
                 {
-                    if (p.ClientId == a.Key) playerName = p.Name;
+                    if (p.ClientId != a.Key) continue;
+                    playerName = p.IsBot ? p.Name + " (IA)" : p.Name;
+                    bot = p.IsBot;
                 }
 
                 bool demon = a.Value >= 0 && a.Value < characters.Count && characters[a.Value] is DemonController;
@@ -119,7 +123,8 @@ namespace HouseOfSilence.Network
                     ClientId = a.Key,
                     Name = playerName,
                     Character = a.Value,
-                    Role = demon ? PlayerRole.Demon : PlayerRole.Survivor
+                    Role = demon ? PlayerRole.Demon : PlayerRole.Survivor,
+                    IsBot = bot
                 });
             }
 
@@ -150,6 +155,62 @@ namespace HouseOfSilence.Network
             }
 
             return null;
+        }
+
+        /// <summary>Hote : personnages joues par des bots, et le role de chacun.</summary>
+        public List<KeyValuePair<int, PlayerRole>> BotCharacters()
+        {
+            List<KeyValuePair<int, PlayerRole>> list = new List<KeyValuePair<int, PlayerRole>>();
+            foreach (RoundPlayer p in _round)
+            {
+                if (p.IsBot) list.Add(new KeyValuePair<int, PlayerRole>(p.Character, p.Role));
+            }
+
+            return list;
+        }
+
+        /// <summary>Hote : survivants de la partie encore en vie (cibles du demon IA).</summary>
+        public List<int> AliveSurvivorCharacters()
+        {
+            List<int> list = new List<int>();
+            foreach (RoundPlayer p in _round)
+            {
+                if (p.Role == PlayerRole.Survivor && p.Alive && p.Connected) list.Add(p.Character);
+            }
+
+            return list;
+        }
+
+        /// <summary>Hote : le demon IA tue (verifie comme pour un joueur, puis annonce a tous).</summary>
+        public void ServerBotKill(int demon, int victim, bool jumpscare)
+        {
+            if (!_game.IsHost || !_roundActive) return;
+
+            RoundPlayer owner = null;
+            foreach (RoundPlayer p in _round)
+            {
+                if (p.Character == demon) owner = p;
+            }
+
+            if (owner == null || !owner.IsBot || !IsValidKill(owner.ClientId, demon, victim)) return;
+
+            foreach (RoundPlayer p in _round)
+            {
+                if (p.Character == victim) p.Alive = false;
+            }
+
+            byte d = (byte)demon;
+            byte v = (byte)victim;
+            _game.ApplyKill(demon, victim, jumpscare);
+            _game.BroadcastEvent(_game.LocalId, NetworkGameManager.EventKill, w =>
+            {
+                w.WriteValueSafe(d);
+                w.WriteValueSafe(v);
+                w.WriteValueSafe(jumpscare);
+            });
+
+            _nextViews = 0f;
+            _nextCheck = 0f;
         }
 
         public void OnClientLeft(ulong clientId)
@@ -355,7 +416,7 @@ namespace HouseOfSilence.Network
         {
             foreach (RoundPlayer recipient in _round)
             {
-                if (!recipient.Connected) continue;
+                if (!recipient.Connected || recipient.IsBot) continue;
 
                 bool knowsDemon = recipient.Role == PlayerRole.Demon || (revealDemonToDead && !recipient.Alive);
 
