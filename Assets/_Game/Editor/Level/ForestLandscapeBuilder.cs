@@ -5,6 +5,7 @@ using HouseOfSilence.Doors;
 using HouseOfSilence.EditorTools.UI;
 using HouseOfSilence.Interaction;
 using HouseOfSilence.Level;
+using HouseOfSilence.Lights;
 using HouseOfSilence.Player;
 using HouseOfSilence.UI;
 using UnityEditor;
@@ -121,10 +122,19 @@ namespace HouseOfSilence.EditorTools.Level
             // sans lampe, on ne distingue plus que des silhouettes.
             PrototypeLevelBuilder.SetupNight(lighting);
             DarkenNight(lighting);
+            CreateDayNightCycle(lighting);
             CreateAmbience();
 
             // Noyau, menu pause et joueur (deplacement seul) au centre de la clairiere principale.
-            SetupPlayer(terrain, meta);
+            SetupPlayer(terrain, meta, locations);
+
+            // Demon jouable pour les tests (F2 en jeu) : DemonDoll en vue TPS avec ses pouvoirs.
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(Characters.DemonDollSetup.PrefabPath) == null)
+            {
+                Characters.DemonDollSetup.BuildAll();
+            }
+
+            Characters.DemonDollSetup.AddToOpenScene();
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
@@ -139,7 +149,7 @@ namespace HouseOfSilence.EditorTools.Level
         // Joueur et menu
         // ------------------------------------------------------------------
 
-        private static void SetupPlayer(Terrain terrain, LandscapeMeta meta)
+        private static void SetupPlayer(Terrain terrain, LandscapeMeta meta, ForestLocations locations)
         {
             Vector3 spawn = new Vector3(meta.size * 0.5f, 0f, meta.size * 0.5f);
 
@@ -159,14 +169,14 @@ namespace HouseOfSilence.EditorTools.Level
             // Echap met en pause : sans menu, le jeu resterait fige.
             MenuSetupMenu.AddPauseMenu();
 
-            CreateMovementOnlyPlayer(spawn);
+            CreateMovementOnlyPlayer(spawn, locations);
         }
 
         /// <summary>
         /// Joueur FPS minimal : CharacterController, lecture des entrees, deplacement
         /// (marche, course, saut, accroupi) et camera. Sans PlayerStamina le sprint est illimite.
         /// </summary>
-        private static void CreateMovementOnlyPlayer(Vector3 position)
+        private static void CreateMovementOnlyPlayer(Vector3 position, ForestLocations locations)
         {
             GameObject player = new GameObject("Player");
             player.tag = "Player";
@@ -227,7 +237,18 @@ namespace HouseOfSilence.EditorTools.Level
             EditorSetupUtility.SetObjectField(interactor, "input", input);
             EditorSetupUtility.SetObjectField(interactor, "rayOrigin", cameraObject.transform);
 
-            new GameObject("[HUD]").AddComponent<InteractionPromptOverlay>();
+            GameObject hud = new GameObject("[HUD]");
+            hud.AddComponent<InteractionPromptOverlay>();
+
+            // Nom du lieu a l'entree d'une clairiere + boussole.
+            ZoneTitleDisplay zoneTitle = hud.AddComponent<ZoneTitleDisplay>();
+            EditorSetupUtility.SetObjectField(zoneTitle, "locations", locations);
+            EditorSetupUtility.SetObjectField(zoneTitle, "player", player.transform);
+            EditorSetupUtility.SetObjectField(zoneTitle, "input", input);
+
+            CompassHud compass = hud.AddComponent<CompassHud>();
+            EditorSetupUtility.SetObjectField(compass, "view", cameraObject.transform);
+            EditorSetupUtility.SetObjectField(compass, "input", input);
 
             // Lampe torche (F) : tenue en main droite, un peu sous le regard.
             GameObject lampObject = new GameObject("Flashlight");
@@ -260,6 +281,13 @@ namespace HouseOfSilence.EditorTools.Level
             EditorSetupUtility.SetObjectField(flashlight, "offClip", AssetDatabase.LoadAssetAtPath<AudioClip>(FlashlightAudioFolder + "Flashlight_Off.wav"));
 
             AddFootsteps(player, character, motor);
+
+            // Mode vol provisoire (V) pour visiter la carte depuis les airs.
+            FlyMode fly = player.AddComponent<FlyMode>();
+            EditorSetupUtility.SetObjectField(fly, "input", input);
+            EditorSetupUtility.SetObjectField(fly, "motor", motor);
+            EditorSetupUtility.SetObjectField(fly, "controller", controller);
+            EditorSetupUtility.SetObjectField(fly, "view", cameraObject.transform);
         }
 
         // ------------------------------------------------------------------
@@ -455,6 +483,38 @@ namespace HouseOfSilence.EditorTools.Level
                 EditorUtility.SetDirty(sky);
                 RenderSettings.skybox = sky;
             }
+        }
+
+        /// <summary>
+        /// Soleil + DayNightCycle (la lune vient de SetupNight). Pour l'instant : fige a 13 h,
+        /// cycle en pause (Cycle Running dans l'Inspector de "--- Lighting ---/DayNightCycle").
+        /// </summary>
+        private static void CreateDayNightCycle(Transform lighting)
+        {
+            GameObject sunObject = new GameObject("Sun");
+            sunObject.transform.SetParent(lighting, false);
+            Light sun = sunObject.AddComponent<Light>();
+            sun.type = LightType.Directional;
+            sun.shadows = LightShadows.Soft;
+            sun.shadowStrength = 0.85f;
+            sun.shadowBias = 0.03f;
+            sun.shadowNormalBias = 0.5f;
+
+            Transform moonTransform = lighting.Find("Moon");
+
+            GameObject cycleObject = new GameObject("DayNightCycle");
+            cycleObject.transform.SetParent(lighting, false);
+            DayNightCycle cycle = cycleObject.AddComponent<DayNightCycle>();
+
+            SerializedObject so = new SerializedObject(cycle);
+            so.FindProperty("sun").objectReferenceValue = sun;
+            so.FindProperty("moon").objectReferenceValue = moonTransform != null ? moonTransform.GetComponent<Light>() : null;
+            so.FindProperty("skyMaterial").objectReferenceValue = RenderSettings.skybox;
+            so.FindProperty("timeOfDay").floatValue = 13f;
+            so.FindProperty("cycleRunning").boolValue = false;   // jour permanent pour l'instant
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            cycle.Apply(); // la scene est sauvegardee directement a 13 h
         }
 
         private static void SetSceneNames(GameManager gm)
@@ -1005,6 +1065,7 @@ namespace HouseOfSilence.EditorTools.Level
                 {
                     builtSites[churchSite.name] = "Church";
                     CreateBellZone(church.transform, churchSite);
+                    CreateChurchLamp(church.transform);
                 }
             }
 
@@ -1099,6 +1160,121 @@ namespace HouseOfSilence.EditorTools.Level
 
         private const string ChurchBellsPath = "Assets/_Game/Audio/horror/church-bells.mp3";
         private const string CemeteryBellPath = "Assets/_Game/Audio/horror/clochette-cimetiere.mp3";
+        private const string ChurchBulbMaterialPath = "Assets/_Game/Materials/M_Church_LampBulb.mat";
+
+        /// <summary>
+        /// Vieille lampe suspendue au-dessus de l'allee de la nef : lumiere jaune malade,
+        /// toujours allumee, qui se met a clignoter au hasard (LightController, sans courant
+        /// ni creature, ne casse jamais). Chaine et cage en fer, ampoule qui s'assombrit avec la lumiere.
+        /// </summary>
+        private static void CreateChurchLamp(Transform church)
+        {
+            const float lampY = 5.8f;      // hauteur de l'ampoule (plafond du faitage a ~13 m)
+            const float ridgeY = 12.9f;
+            const float lampZ = 14f;       // milieu de la nef
+
+            GameObject root = new GameObject("Church_CreepyLamp");
+            root.transform.SetParent(church, false);
+            root.transform.localPosition = new Vector3(0f, lampY, lampZ);
+            root.transform.localRotation = Quaternion.identity;
+
+            Material iron = AssetDatabase.LoadAssetAtPath<Material>(ManorAssetPostprocessor.MaterialsFolder + "/M_Metal_Rust.mat");
+
+            // Chaine jusqu'au faitage.
+            float chainLength = ridgeY - lampY - 0.35f;
+            GameObject chain = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            chain.name = "Chain";
+            Object.DestroyImmediate(chain.GetComponent<Collider>());
+            chain.transform.SetParent(root.transform, false);
+            chain.transform.localPosition = new Vector3(0f, 0.35f + chainLength * 0.5f, 0f);
+            chain.transform.localScale = new Vector3(0.03f, chainLength * 0.5f, 0.03f);
+
+            // Cage : chapeau conique aplati, anneau bas et quatre barreaux.
+            GameObject cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            cap.name = "Cap";
+            Object.DestroyImmediate(cap.GetComponent<Collider>());
+            cap.transform.SetParent(root.transform, false);
+            cap.transform.localPosition = new Vector3(0f, 0.3f, 0f);
+            cap.transform.localScale = new Vector3(0.42f, 0.04f, 0.42f);
+
+            GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ring.name = "Ring";
+            Object.DestroyImmediate(ring.GetComponent<Collider>());
+            ring.transform.SetParent(root.transform, false);
+            ring.transform.localPosition = new Vector3(0f, -0.28f, 0f);
+            ring.transform.localScale = new Vector3(0.3f, 0.02f, 0.3f);
+
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * Mathf.PI * 0.5f + Mathf.PI * 0.25f;
+                GameObject bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                bar.name = "Bar_" + i;
+                Object.DestroyImmediate(bar.GetComponent<Collider>());
+                bar.transform.SetParent(root.transform, false);
+                bar.transform.localPosition = new Vector3(Mathf.Cos(a) * 0.15f, 0f, Mathf.Sin(a) * 0.15f);
+                bar.transform.localScale = new Vector3(0.02f, 0.58f, 0.02f);
+            }
+
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>())
+            {
+                if (iron != null) r.sharedMaterial = iron;
+            }
+
+            // Ampoule : materiau non eclaire, teinte par le LightController (claire allumee, sombre eteinte).
+            Material bulbMat = AssetDatabase.LoadAssetAtPath<Material>(ChurchBulbMaterialPath);
+
+            if (bulbMat == null)
+            {
+                bulbMat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+                AssetDatabase.CreateAsset(bulbMat, ChurchBulbMaterialPath);
+            }
+
+            bulbMat.SetColor("_BaseColor", new Color(1f, 0.78f, 0.45f));
+            EditorUtility.SetDirty(bulbMat);
+
+            GameObject bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            bulb.name = "Bulb";
+            Object.DestroyImmediate(bulb.GetComponent<Collider>());
+            bulb.transform.SetParent(root.transform, false);
+            bulb.transform.localPosition = new Vector3(0f, -0.02f, 0f);
+            bulb.transform.localScale = Vector3.one * 0.14f;
+            Renderer bulbRenderer = bulb.GetComponent<Renderer>();
+            bulbRenderer.sharedMaterial = bulbMat;
+            bulbRenderer.shadowCastingMode = ShadowCastingMode.Off;
+
+            // La lumiere : jaune sale, faible, ombres douces (les coins de la nef restent noirs).
+            GameObject lightObject = new GameObject("Light");
+            lightObject.transform.SetParent(root.transform, false);
+            lightObject.transform.localPosition = new Vector3(0f, -0.1f, 0f);
+
+            Light light = lightObject.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.72f, 0.38f);
+            light.intensity = 14f;     // URP lineaire (1/d²) : ~0.9 au sol, a 4 m sous la lampe
+            light.range = 16f;
+            light.shadows = LightShadows.Soft;
+            light.shadowStrength = 0.95f;
+            light.shadowNearPlane = 0.3f;
+
+            LightController controller = root.AddComponent<LightController>();
+            SerializedObject so = new SerializedObject(controller);
+            SerializedProperty lights = so.FindProperty("lights");
+            lights.arraySize = 1;
+            lights.GetArrayElementAtIndex(0).objectReferenceValue = light;
+            so.FindProperty("bulbRenderer").objectReferenceValue = bulbRenderer;
+            so.FindProperty("bulbOnColor").colorValue = new Color(1f, 0.78f, 0.45f);
+            so.FindProperty("bulbOffColor").colorValue = new Color(0.12f, 0.1f, 0.08f);
+            so.FindProperty("startOn").boolValue = true;
+            so.FindProperty("requiresPower").boolValue = false;       // pas de courant dans la foret
+            so.FindProperty("flickerDuration").floatValue = 1.8f;
+            so.FindProperty("flickerFrequency").floatValue = 14f;
+            so.FindProperty("flickerMinIntensity").floatValue = 0.05f;
+            so.FindProperty("chanceToBreak").floatValue = 0f;          // toujours rallumee apres
+            so.FindProperty("randomFailures").boolValue = true;
+            so.FindProperty("randomFailuresPerMinute").floatValue = 3f; // environ toutes les 20 s
+            so.FindProperty("monsterInfluence").floatValue = 0f;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
 
         /// <summary>
         /// Clochette quand le joueur entre dans l'enclos du cimetiere (interieur du mur,

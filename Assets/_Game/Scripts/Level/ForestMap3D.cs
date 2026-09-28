@@ -60,9 +60,29 @@ namespace HouseOfSilence.Level
         [SerializeField] private Vector2 distanceRange = new Vector2(12f, 260f);
         [SerializeField] private Vector2 pitchRange = new Vector2(20f, 88f);
 
+        [Header("Joueurs reveles (pouvoir Vision du demon)")]
+        [SerializeField] private Color revealColor = new Color(0.78f, 0.25f, 1f, 1f); // violet : distinct de la balise orange du joueur
+        [SerializeField] private string revealLabel = "JOUEUR";
+
         private PlayerCharacter _player;
         private InputReader _input;
         private Camera _playerCamera;
+
+        // Personnage controle a la place du survivant (mode demon) : marqueur,
+        // camera coupee pendant la carte et teleportation portent sur lui.
+        private Transform _controlledOverride;
+        private Camera _cameraOverride;
+        private Camera _disabledCamera;
+
+        private class Revealed
+        {
+            public Transform target;
+            public Transform marker;
+            public float until;
+        }
+
+        private readonly List<Revealed> _revealed = new List<Revealed>();
+        private GUIStyle _revealStyle;
 
         private bool _open;
         private bool _savedFog;
@@ -97,8 +117,85 @@ namespace HouseOfSilence.Level
             }
         }
 
+        private Transform Controlled
+        {
+            get { return _controlledOverride != null ? _controlledOverride : (_player != null ? _player.transform : null); }
+        }
+
+        /// <summary>
+        /// Fait suivre la carte a un autre personnage (null = retour au survivant).
+        /// Utilise par PlayableCharacterSwitcher quand on joue le demon.
+        /// </summary>
+        public void SetControlled(Transform body, Camera view)
+        {
+            if (_open)
+            {
+                Close();
+            }
+
+            _controlledOverride = body;
+            _cameraOverride = body != null ? view : null;
+        }
+
+        /// <summary>Affiche la position exacte d'une cible sur la maquette pendant 'duration' secondes.</summary>
+        public void Reveal(Transform target, float duration)
+        {
+            if (target == null || playerMarker == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _revealed.Count; i++)
+            {
+                if (_revealed[i].target == target)
+                {
+                    _revealed[i].until = Mathf.Max(_revealed[i].until, Time.time + duration);
+                    return;
+                }
+            }
+
+            GameObject marker = Instantiate(playerMarker.gameObject, playerMarker.parent);
+            marker.name = "Revealed_" + target.name;
+
+            foreach (Renderer r in marker.GetComponentsInChildren<Renderer>())
+            {
+                Material m = r.material; // instance : la balise du joueur garde sa couleur
+                if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", revealColor);
+                if (m.HasProperty("_Color")) m.SetColor("_Color", revealColor);
+                if (m.HasProperty("_EmissionColor"))
+                {
+                    m.EnableKeyword("_EMISSION");
+                    m.SetColor("_EmissionColor", revealColor * 2f);
+                }
+            }
+
+            _revealed.Add(new Revealed { target = target, marker = marker.transform, until = Time.time + duration });
+        }
+
+        private void UpdateRevealed()
+        {
+            for (int i = _revealed.Count - 1; i >= 0; i--)
+            {
+                Revealed r = _revealed[i];
+
+                if (r.target == null || Time.time > r.until)
+                {
+                    if (r.marker != null) Destroy(r.marker.gameObject);
+                    _revealed.RemoveAt(i);
+                    continue;
+                }
+
+                r.marker.position = WorldToMap(r.target.position) + Vector3.up * markerHover;
+                r.marker.rotation = Quaternion.Euler(0f, r.target.eulerAngles.y, 0f);
+                r.marker.localScale = Vector3.one * (1.4f + Mathf.Sin(Time.unscaledTime * 9f) * 0.25f);
+                r.marker.gameObject.SetActive(_open);
+            }
+        }
+
         private void Update()
         {
+            UpdateRevealed();
+
             Keyboard keyboard = Keyboard.current;
             bool playing = GameManager.HasInstance && GameManager.Instance != null && GameManager.Instance.IsPlaying;
 
@@ -171,7 +268,9 @@ namespace HouseOfSilence.Level
             _open = true;
 
             if (_input != null) _input.SetInputEnabled(false);
-            if (_playerCamera != null) _playerCamera.enabled = false;
+
+            _disabledCamera = _cameraOverride != null ? _cameraOverride : _playerCamera;
+            if (_disabledCamera != null) _disabledCamera.enabled = false;
 
             // Le brouillard de nuit noierait la maquette.
             _savedFog = RenderSettings.fog;
@@ -197,7 +296,8 @@ namespace HouseOfSilence.Level
             RenderSettings.fog = _savedFog;
 
             if (mapCamera != null) mapCamera.enabled = false;
-            if (_playerCamera != null) _playerCamera.enabled = true;
+            if (_disabledCamera != null) _disabledCamera.enabled = true;
+            _disabledCamera = null;
 
             bool playing = GameManager.HasInstance && GameManager.Instance != null && GameManager.Instance.IsPlaying;
 
@@ -242,13 +342,15 @@ namespace HouseOfSilence.Level
 
         private void UpdatePlayerMarker()
         {
-            if (_player == null || playerMarker == null)
+            Transform controlled = Controlled;
+
+            if (controlled == null || playerMarker == null)
             {
                 return;
             }
 
-            playerMarker.position = WorldToMap(_player.transform.position) + Vector3.up * markerHover;
-            playerMarker.rotation = Quaternion.Euler(0f, _player.transform.eulerAngles.y, 0f);
+            playerMarker.position = WorldToMap(controlled.position) + Vector3.up * markerHover;
+            playerMarker.rotation = Quaternion.Euler(0f, controlled.eulerAngles.y, 0f);
 
             // Leger battement pour reperer le joueur au premier coup d'oeil.
             float pulse = 1f + Mathf.Sin(Time.unscaledTime * 5f) * 0.12f;
@@ -258,7 +360,7 @@ namespace HouseOfSilence.Level
         private void Recenter()
         {
             _focus = playerMarker != null ? playerMarker.position : diorama.position;
-            _yaw = _player != null ? _player.transform.eulerAngles.y : 0f;
+            _yaw = Controlled != null ? Controlled.eulerAngles.y : 0f;
         }
 
         private void HandleControls(Keyboard keyboard, Mouse mouse)
@@ -392,7 +494,9 @@ namespace HouseOfSilence.Level
         /// </summary>
         private void TeleportPlayer(Vector3 worldXZ)
         {
-            if (_player == null)
+            Transform controlled = Controlled;
+
+            if (controlled == null)
             {
                 return;
             }
@@ -418,10 +522,10 @@ namespace HouseOfSilence.Level
 
             Close();
 
-            CharacterController controller = _player.GetComponent<CharacterController>();
+            CharacterController controller = controlled.GetComponent<CharacterController>();
 
             if (controller != null) controller.enabled = false;
-            _player.transform.position = target + Vector3.up * 0.1f;
+            controlled.position = target + Vector3.up * 0.1f;
             if (controller != null) controller.enabled = true;
 
             Debug.Log("[ForestMap3D] Teleportation en " + target.ToString("F0"));
@@ -429,7 +533,8 @@ namespace HouseOfSilence.Level
 
         private bool IsIgnored(Collider c)
         {
-            return c == dioramaCollider || c.transform.IsChildOf(_player.transform);
+            Transform controlled = Controlled;
+            return c == dioramaCollider || (controlled != null && c.transform.IsChildOf(controlled));
         }
 
         /// <summary>Place pour un joueur debout (capsule de 1.8 m) au-dessus du point.</summary>
@@ -473,6 +578,7 @@ namespace HouseOfSilence.Level
             }
 
             DrawLocationLabels();
+            DrawRevealLabels();
 
             string hint = "CARTE    M fermer   ·   souris tourner   ·   molette zoom   ·   ZQSD deplacer   ·   F recentrer";
 
@@ -500,6 +606,38 @@ namespace HouseOfSilence.Level
             }
 
             GUI.Label(new Rect(0f, Screen.height - 70f, Screen.width, 50f), hint, _hintStyle);
+        }
+
+        private void DrawRevealLabels()
+        {
+            if (_revealed.Count == 0 || mapCamera == null)
+            {
+                return;
+            }
+
+            if (_revealStyle == null)
+            {
+                _revealStyle = new GUIStyle(GUI.skin.label);
+                _revealStyle.alignment = TextAnchor.LowerCenter;
+                _revealStyle.fontStyle = FontStyle.Bold;
+                _revealStyle.fontSize = 15;
+            }
+
+            foreach (Revealed r in _revealed)
+            {
+                if (r.marker == null) continue;
+                Vector3 sp = mapCamera.WorldToScreenPoint(r.marker.position + Vector3.up * 3f);
+                if (sp.z <= 0f) continue;
+
+                // Au-dessus du nom de la clairiere (qui s'affiche juste sur la balise).
+                Rect rect = new Rect(sp.x - 100f, Screen.height - sp.y - 52f, 200f, 24f);
+                float blink = 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 9f);
+                string text = revealLabel + "  " + Mathf.CeilToInt(r.until - Time.time) + " s";
+                _revealStyle.normal.textColor = new Color(0f, 0f, 0f, 0.85f);
+                GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), text, _revealStyle);
+                _revealStyle.normal.textColor = new Color(revealColor.r, revealColor.g, revealColor.b, blink);
+                GUI.Label(rect, text, _revealStyle);
+            }
         }
 
         private readonly List<KeyValuePair<float, int>> _labelOrder = new List<KeyValuePair<float, int>>();
