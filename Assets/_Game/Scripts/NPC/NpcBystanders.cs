@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HouseOfSilence.Player;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -63,7 +64,10 @@ namespace HouseOfSilence.NPC
                     if (toPlayer.sqrMagnitude > 0.01f) npc.rotation = Quaternion.LookRotation(toPlayer);
                 }
 
-                SetupAnimator(npc.GetComponentInChildren<Animator>());
+                MergeNestedSkeletons(npc.gameObject);
+                Animator figurant = npc.GetComponentInChildren<Animator>();
+                if (figurant != null) figurant.Rebind(); // os du squelette principal seulement
+                SetupAnimator(figurant);
 
                 if (addCollider && npc.GetComponent<Collider>() == null)
                 {
@@ -138,6 +142,8 @@ namespace HouseOfSilence.NPC
         /// <summary>Animations du survivant, un seul niveau de detail (ragdoll, contour du demon), pas d'ombre (lampe).</summary>
         private static void PrepareBody(GameObject body, RuntimeAnimatorController controller)
         {
+            MergeNestedSkeletons(body);
+
             LODGroup lods = body.GetComponent<LODGroup>();
             if (lods != null)
             {
@@ -169,6 +175,75 @@ namespace HouseOfSilence.NPC
                 animator.runtimeAnimatorController = controller;
                 animator.applyRootMotion = false;
                 animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+            }
+        }
+
+        /// <summary>
+        /// Les coiffures du pack ont leur propre squelette complet, range sous l'os Head du
+        /// squelette principal, avec les memes noms d'os (Hips, Spine, Neck, Head...).
+        /// L'Animator Humanoid, qui cherche les os par nom, peut alors piloter le mauvais :
+        /// tete et coiffure se retrouvent decalees (tete au niveau du torse). On rattache la
+        /// coiffure aux os du squelette principal (meme pose de reference) et on supprime
+        /// le squelette en double.
+        /// </summary>
+        private static void MergeNestedSkeletons(GameObject body)
+        {
+            Transform mainRoot = body.transform.Find("Root");
+            if (mainRoot == null) return;
+
+            Dictionary<string, Transform> main = new Dictionary<string, Transform>();
+            HashSet<Transform> mainSet = new HashSet<Transform>();
+            List<Transform> nested = new List<Transform>();
+            Collect(mainRoot, main, mainSet, nested);
+            if (nested.Count == 0) return;
+
+            foreach (SkinnedMeshRenderer smr in body.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                Transform[] bones = smr.bones;
+                bool changed = false;
+
+                for (int i = 0; i < bones.Length; i++)
+                {
+                    Transform replacement;
+                    if (bones[i] != null && !mainSet.Contains(bones[i]) && main.TryGetValue(bones[i].name, out replacement))
+                    {
+                        bones[i] = replacement;
+                        changed = true;
+                    }
+                }
+
+                if (changed) smr.bones = bones;
+
+                Transform root;
+                if (smr.rootBone != null && !mainSet.Contains(smr.rootBone) && main.TryGetValue(smr.rootBone.name, out root))
+                {
+                    smr.rootBone = root;
+                }
+            }
+
+            foreach (Transform n in nested)
+            {
+                if (n != null) DestroyImmediate(n.gameObject);
+            }
+        }
+
+        /// <summary>Os du squelette principal (par nom) ; les squelettes imbriques ("Root" sous un os) a part.</summary>
+        private static void Collect(Transform t, Dictionary<string, Transform> main, HashSet<Transform> mainSet, List<Transform> nested)
+        {
+            if (!main.ContainsKey(t.name)) main[t.name] = t;
+            mainSet.Add(t);
+
+            foreach (Transform child in t)
+            {
+                // Support d'une piece (ex. npc_haircut_a_01) : son "Root" est un squelette en double.
+                if (child.name.StartsWith("npc_"))
+                {
+                    Transform duplicate = child.Find("Root");
+                    if (duplicate != null) nested.Add(duplicate);
+                    continue;
+                }
+
+                Collect(child, main, mainSet, nested);
             }
         }
 

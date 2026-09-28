@@ -196,24 +196,22 @@ namespace HouseOfSilence.Network
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
             int character = _lobby.LocalCharacterPref;
-            if (Card(character == -1, "Peu importe", null, WhoWants(-1))) character = -1;
+            bool wantsDemon = _lobby.LocalRolePref == RolePreference.Demon; // cartes estompees : servent si pas demon
+            if (Card(character == -1, "Peu importe", null, WhoWants(-1), wantsDemon)) character = -1;
             for (int i = 0; i < _survivors.Count; i++)
             {
                 GUILayout.Space(10f);
-                if (Card(character == i, _survivors[i].Name, _survivors[i].Portrait, WhoWants(i))) character = i;
+                if (Card(character == i, _survivors[i].Name, _survivors[i].Portrait, WhoWants(i), wantsDemon)) character = i;
             }
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
             GUILayout.Space(8f);
 
-            // Role souhaite, avec le portrait du demon.
+            // Role souhaite, avec un apercu qui suit les choix : le demon, ou le survivant choisi.
             GUILayout.BeginHorizontal();
-            if (_demonPortrait != null)
-            {
-                Rect r = GUILayoutUtility.GetRect(52f, 64f, GUILayout.Width(52f), GUILayout.Height(64f));
-                GUI.DrawTexture(r, _demonPortrait, ScaleMode.ScaleAndCrop);
-            }
+            DrawPreview();
+            GUILayout.Space(12f);
 
             GUILayout.BeginVertical();
             GUILayout.Label("Role souhaite :", _textStyle);
@@ -282,8 +280,57 @@ namespace HouseOfSilence.Network
             }
         }
 
+        /// <summary>Apercu de ce que l'on souhaite jouer (mis a jour a chaque choix).</summary>
+        private void DrawPreview()
+        {
+            RolePreference role = _lobby.LocalRolePref;
+            int character = _lobby.LocalCharacterPref;
+            bool survivorKnown = character >= 0 && character < _survivors.Count;
+
+            Texture portrait;
+            string caption;
+
+            if (role == RolePreference.Demon)
+            {
+                portrait = _demonPortrait;
+                caption = "Demon";
+            }
+            else if (survivorKnown)
+            {
+                portrait = _survivors[character].Portrait;
+                caption = role == RolePreference.Survivor ? _survivors[character].Name : _survivors[character].Name + " ?";
+            }
+            else
+            {
+                portrait = null;
+                caption = role == RolePreference.Survivor ? "Survivant" : "Surprise";
+            }
+
+            GUILayout.BeginVertical(GUILayout.Width(92f));
+            Rect r = GUILayoutUtility.GetRect(92f, 112f, GUILayout.Width(92f), GUILayout.Height(112f));
+            Color previous = GUI.color;
+            GUI.color = role == RolePreference.Demon ? new Color(0.9f, 0.12f, 0.08f, 1f) : new Color(0.35f, 0.3f, 0.3f, 1f);
+            GUI.DrawTexture(new Rect(r.x - 3f, r.y - 3f, r.width + 6f, r.height + 6f), Texture2D.whiteTexture);
+            GUI.color = previous;
+
+            if (portrait != null)
+            {
+                GUI.DrawTexture(r, portrait, ScaleMode.ScaleAndCrop);
+            }
+            else
+            {
+                GUI.color = new Color(0.08f, 0.06f, 0.06f, 1f);
+                GUI.DrawTexture(r, Texture2D.whiteTexture);
+                GUI.color = previous;
+                GUI.Label(r, "?", _codeStyle);
+            }
+
+            GUILayout.Label(caption, _cardNameStyle, GUILayout.Width(92f));
+            GUILayout.EndVertical();
+        }
+
         /// <summary>Carte cliquable : portrait (ou "?"), nom, joueurs qui l'ont choisie.</summary>
-        private bool Card(bool selected, string label, Texture portrait, string wanted)
+        private bool Card(bool selected, string label, Texture portrait, string wanted, bool dimmed)
         {
             GUILayout.BeginVertical(GUILayout.Width(CardWidth));
 
@@ -303,6 +350,14 @@ namespace HouseOfSilence.Network
                 GUI.DrawTexture(r, Texture2D.whiteTexture);
                 GUI.color = previous;
                 GUI.Label(r, "?", _codeStyle);
+            }
+
+            if (dimmed)
+            {
+                // Role Demon souhaite : le personnage ne servira que si l'on est finalement survivant.
+                GUI.color = new Color(0f, 0f, 0f, 0.55f);
+                GUI.DrawTexture(r, Texture2D.whiteTexture);
+                GUI.color = previous;
             }
 
             bool clicked = GUI.Button(r, GUIContent.none, GUIStyle.none);
