@@ -58,6 +58,7 @@ namespace HouseOfSilence.AI
         private Vector3 _avoidDirection;
         private float _avoidUntil;
 
+        private float _zigzagSeed;
         private float _killCharge;
         private float _nextTeleport;
         private float _nextScream;
@@ -90,6 +91,7 @@ namespace HouseOfSilence.AI
             if (_flashlight != null) _flashlight.SetOn(true);
 
             _destination = transform.position;
+            _zigzagSeed = Random.Range(0f, 100f); // chaque bot zigzague a sa facon
             _nextTeleport = Time.time + teleportCooldown * 0.5f;
             _nextScream = Time.time + Random.Range(10f, screamCooldown);
             _stuckCheckAt = Time.time + 1.5f;
@@ -136,7 +138,7 @@ namespace HouseOfSilence.AI
                 if (away.magnitude < fleeRadius)
                 {
                     // Fuite : a l'oppose du demon, en zigzag leger.
-                    float zig = Mathf.Sin(Time.time * 0.8f + GetInstanceID()) * 35f;
+                    float zig = Mathf.Sin(Time.time * 0.8f + _zigzagSeed) * 35f;
                     wish = Quaternion.Euler(0f, zig, 0f) * away.normalized;
                     run = true;
                     _pauseUntil = 0f;
