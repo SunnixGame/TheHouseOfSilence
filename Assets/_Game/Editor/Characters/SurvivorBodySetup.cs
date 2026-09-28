@@ -10,9 +10,11 @@ namespace HouseOfSilence.EditorTools.Characters
     /// <summary>
     /// Corps visible du survivant : "Modern Female Character B" (Alpen Wolf,
     /// Assets/civilian_girl) a la place de la capsule. Materiaux Standard convertis en
-    /// URP Lit, taille ramenee a 1,70 m, Idle genere par code (debout, respiration,
-    /// leger balancement). Le corps n'est affiche que quand on joue le demon (F2).
+    /// URP Lit, taille ramenee a 1,70 m, Idle / Walk / Run generes par code et melanges
+    /// par "Speed" (0 = arret, 1 = marche, 2 = course : SurvivorBodyAnimator).
+    /// Le corps est affiche quand on joue le demon (F2) ou en vue TPS (F4).
     /// </summary>
+    [InitializeOnLoad]
     public static class SurvivorBodySetup
     {
         private const string PackPrefab = "Assets/civilian_girl/Prefabs/civilian_girl.prefab";
@@ -24,6 +26,35 @@ namespace HouseOfSilence.EditorTools.Characters
 
         /// <summary>Taille voulue du personnage (sommet des cheveux), en metres.</summary>
         private const float TargetHeight = 1.70f;
+
+        // Premier chargement apres l'ajout de Walk / Run : le controleur existant est
+        // regenere une fois, sans passer par le menu.
+        static SurvivorBodySetup()
+        {
+            EditorApplication.delayCall += RebuildIfWalkMissing;
+        }
+
+        private static void RebuildIfWalkMissing()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                EditorApplication.delayCall += RebuildIfWalkMissing;
+                return;
+            }
+
+            bool hasController = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath) != null;
+            bool hasWalk = AssetDatabase.LoadAssetAtPath<AnimationClip>(AnimFolder + "/Survivor_Walk.anim") != null;
+
+            if (hasController && !hasWalk)
+            {
+                RebuildAnimations();
+            }
+        }
 
         [MenuItem("Tools/House of Silence/Characters/Replace Survivor Capsule With Female Character")]
         public static void ReplaceInOpenScene()
@@ -46,6 +77,25 @@ namespace HouseOfSilence.EditorTools.Characters
             }
 
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(survivor.gameObject.scene);
+        }
+
+        /// <summary>
+        /// Regenere seulement les animations et l'Animator Controller (meme asset : le corps
+        /// deja pose dans les scenes les recoit sans etre recree).
+        /// </summary>
+        [MenuItem("Tools/House of Silence/Characters/Rebuild Survivor Animations")]
+        public static void RebuildAnimations()
+        {
+            Avatar avatar = LoadAvatar();
+
+            if (avatar == null || !avatar.isHuman)
+            {
+                Debug.LogError("[Survivor] Avatar Humanoid introuvable pour " + PackFbx + ".");
+                return;
+            }
+
+            BuildController(avatar);
+            Debug.Log("[Survivor] Animations Idle / Walk / Run / Death regenerees : " + ControllerPath);
         }
 
         /// <summary>
@@ -272,6 +322,69 @@ namespace HouseOfSilence.EditorTools.Characters
         }
 
         /// <summary>
+        /// Marche prudente : buste legerement penche, bras qui balancent en opposition,
+        /// bassin qui roule d'une jambe a l'autre. Un cycle = deux pas.
+        /// </summary>
+        private static void WalkPose(DemonDollSetup.Poser p, float phase)
+        {
+            DemonDollSetup.HangArms(p, 0.08f, 0.12f);
+
+            float s = DemonDollSetup.Wave(phase);                        // jambe gauche en avant quand s > 0
+            float bob = Mathf.Abs(DemonDollSetup.Wave(phase, 0.25f));    // haut a chaque passage de jambe
+            p.Move("pelvis", Vector3.up * (0.02f * bob - 0.015f));
+            p.Rot("pelvis", DemonDollSetup.Y, 5f * s);
+            p.Rot("pelvis", DemonDollSetup.Z, 2.5f * DemonDollSetup.Wave(phase, 0.25f));
+            p.Rot("spine_01", DemonDollSetup.X, 4f);
+            p.Rot("spine_03", DemonDollSetup.Y, -7f * s);
+
+            DemonDollSetup.Leg(p, "_l", s, phase, 0f, 28f, 55f);
+            DemonDollSetup.Leg(p, "_r", -s, phase, 0.5f, 28f, 55f);
+
+            // +X = bras vers l'arriere : le bras gauche recule quand la jambe gauche avance.
+            p.Rot("upperarm_l", DemonDollSetup.X, 16f * DemonDollSetup.Wave(phase, 0.03f));
+            p.Rot("upperarm_r", DemonDollSetup.X, -16f * DemonDollSetup.Wave(phase, 0.03f));
+
+            // Tete stable qui compense le buste, regard un peu bas (inquiete).
+            p.Rot("neck_01", DemonDollSetup.Y, 5f * s);
+            p.Rot("head", DemonDollSetup.X, 5f - 2f * bob);
+        }
+
+        /// <summary>
+        /// Course : buste penche en avant, coudes plies a 90 degres qui pompent, genoux
+        /// hauts, phase de suspension (le bassin monte entre deux appuis).
+        /// </summary>
+        private static void RunPose(DemonDollSetup.Poser p, float phase)
+        {
+            DemonDollSetup.HangArms(p, 0.1f, 0.2f);
+
+            // Avant-bras plies vers l'avant, mains a hauteur de la taille.
+            foreach (int side in new[] { -1, 1 })
+            {
+                string sfx = side < 0 ? "_l" : "_r";
+                p.Aim("lowerarm" + sfx, "hand" + sfx, new Vector3(-side * 0.25f, -0.15f, 1f));
+            }
+
+            float s = DemonDollSetup.Wave(phase);
+            float bob = Mathf.Abs(DemonDollSetup.Wave(phase, 0.25f));
+            p.Move("pelvis", Vector3.up * (0.05f * bob - 0.05f));
+            p.Rot("pelvis", DemonDollSetup.Y, 8f * s);
+            p.Rot("spine_01", DemonDollSetup.X, 12f);
+            p.Rot("spine_03", DemonDollSetup.Y, -12f * s);
+            p.Rot("spine_03", DemonDollSetup.X, 3f * bob);
+
+            DemonDollSetup.Leg(p, "_l", s, phase, 0f, 48f, 100f);
+            DemonDollSetup.Leg(p, "_r", -s, phase, 0.5f, 48f, 100f);
+
+            p.Rot("upperarm_l", DemonDollSetup.X, 38f * DemonDollSetup.Wave(phase, 0.02f));
+            p.Rot("upperarm_r", DemonDollSetup.X, -38f * DemonDollSetup.Wave(phase, 0.02f));
+
+            // La tete se redresse pour regarder devant malgre le buste penche.
+            p.Rot("neck_01", DemonDollSetup.X, -8f);
+            p.Rot("neck_01", DemonDollSetup.Y, 8f * s);
+            p.Rot("head", DemonDollSetup.X, -2f + 3f * bob);
+        }
+
+        /// <summary>
         /// Mort (2,6 s, sans boucle) : sursaut en arriere, mains a la gorge, les genoux
         /// lachent et elle tombe a la renverse ; derniere pose tenue, allongee sur le dos.
         /// </summary>
@@ -341,6 +454,8 @@ namespace HouseOfSilence.EditorTools.Characters
             instance.hideFlags = HideFlags.HideAndDontSave;
             instance.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
             AnimationClip idle;
+            AnimationClip walk;
+            AnimationClip run;
             AnimationClip death;
 
             try
@@ -348,6 +463,8 @@ namespace HouseOfSilence.EditorTools.Characters
                 DemonDollSetup.Poser poser = new DemonDollSetup.Poser(instance);
                 HumanPoseHandler handler = new HumanPoseHandler(avatar, instance.transform);
                 idle = DemonDollSetup.Record("Survivor_Idle", poser, handler, IdlePose, 6f, AnimFolder);
+                walk = DemonDollSetup.Record("Survivor_Walk", poser, handler, WalkPose, 1.05f, AnimFolder);
+                run = DemonDollSetup.Record("Survivor_Run", poser, handler, RunPose, 0.7f, AnimFolder);
                 death = DemonDollSetup.Record("Survivor_Death", poser, handler, DeathPose, 2.6f, AnimFolder, false);
             }
             finally
@@ -366,12 +483,25 @@ namespace HouseOfSilence.EditorTools.Characters
             while (controller.parameters.Length > 0) controller.RemoveParameter(0);
             AnimatorStateMachine machine = controller.layers[0].stateMachine;
             foreach (ChildAnimatorState child in machine.states) machine.RemoveState(child.state);
+            foreach (Object sub in AssetDatabase.LoadAllAssetsAtPath(ControllerPath))
+            {
+                if (sub is BlendTree) Object.DestroyImmediate(sub, true);
+            }
 
-            AnimatorState state = machine.AddState("Idle");
-            state.motion = idle;
+            // Deplacement (SurvivorBodyAnimator) : Speed 0 = arret, 1 = marche, 2 = course.
+            controller.AddParameter("Speed", AnimatorControllerParameterType.Float);
+            BlendTree tree;
+            AnimatorState state = controller.CreateBlendTreeInController("Locomotion", out tree, 0);
+            tree.blendType = BlendTreeType.Simple1D;
+            tree.blendParameter = "Speed";
+            tree.useAutomaticThresholds = false;
+            tree.AddChild(idle, 0f);
+            tree.AddChild(walk, 1f);
+            tree.AddChild(run, 2f);
+            state.iKOnFeet = false; // clips generes sans cibles IK
             machine.defaultState = state;
 
-            // Mort (SurvivorDeath) : "Die" -> Death (derniere pose tenue), "Revive" -> Idle.
+            // Mort (SurvivorDeath) : "Die" -> Death (derniere pose tenue), "Revive" -> Locomotion.
             controller.AddParameter("Die", AnimatorControllerParameterType.Trigger);
             controller.AddParameter("Revive", AnimatorControllerParameterType.Trigger);
             AnimatorState dead = machine.AddState("Death");

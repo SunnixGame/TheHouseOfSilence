@@ -108,6 +108,12 @@ namespace HouseOfSilence.Player
             {
                 gameObject.AddComponent<SurvivorViewMode>();
             }
+
+            // Idle / Walk / Run du corps visible, d'apres le deplacement.
+            if (GetComponent<SurvivorBodyAnimator>() == null)
+            {
+                gameObject.AddComponent<SurvivorBodyAnimator>();
+            }
         }
 
         private void OnEnable()

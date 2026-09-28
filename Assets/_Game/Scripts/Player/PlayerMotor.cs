@@ -99,6 +99,10 @@ namespace HouseOfSilence.Player
         /// <summary>Vitesse horizontale reelle, en m/s.</summary>
         public float CurrentSpeed { get { return _horizontalVelocity.magnitude; } }
 
+        /// <summary>Vitesses reglees dans l'Inspector (animation du corps).</summary>
+        public float WalkSpeed { get { return walkSpeed; } }
+        public float RunSpeed { get { return runSpeed; } }
+
         /// <summary>Bloque tout deplacement (mort, cachette, cinematique).</summary>
         public bool MovementLocked { get; set; }
 

@@ -551,7 +551,7 @@ namespace HouseOfSilence.EditorTools.Characters
         /// Jambe : cuisse qui balance (swing > 0 = en avant), genou qui plie pendant
         /// le passage de la jambe, pied qui se deroule.
         /// </summary>
-        private static void Leg(Poser p, string side, float swing, float phase, float offset, float hipAmplitude, float kneeAmplitude)
+        internal static void Leg(Poser p, string side, float swing, float phase, float offset, float hipAmplitude, float kneeAmplitude)
         {
             // swing = sin(2 pi local) : la jambe revient vers l'avant entre local 0.75 et 1.25.
             float local = Mathf.Repeat(phase + offset, 1f);
