@@ -77,6 +77,10 @@ namespace HouseOfSilence.Demon
             foreach (DemonController demon in _demons)
             {
                 if (demon == null || !demon.isActiveAndEnabled) continue;
+
+                // Demon deguise en survivant : rien ne le trahit.
+                DemonDisguise disguise = demon.GetComponent<DemonDisguise>();
+                if (disguise != null && disguise.IsActive) continue;
                 nearest = Mathf.Min(nearest, Vector3.Distance(transform.position, demon.transform.position));
             }
 

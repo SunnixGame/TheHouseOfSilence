@@ -48,6 +48,9 @@ namespace HouseOfSilence.Demon
         [SerializeField, Range(0f, 1f)] private float pulse = 0.15f;
         [SerializeField, Min(0f)] private float pulseSpeed = 1.3f;
 
+        /// <summary>Yeux eteints (demon deguise en survivant).</summary>
+        public bool Hidden { get; set; }
+
         private MaterialPropertyBlock _block;
         private float _nextBlink;
         private float _blinkStart = -1f;
@@ -98,7 +101,7 @@ namespace HouseOfSilence.Demon
             foreach (Renderer r in glows)
             {
                 if (r == null) continue;
-                r.enabled = glowEnabled;
+                r.enabled = glowEnabled && !Hidden;
                 // Oeil gauche (EyeGlow_L) vers -X de la tete, droit vers +X.
                 _block.SetFloat(SideId, r.name.EndsWith("_L") ? -1f : r.name.EndsWith("_R") ? 1f : 0f);
                 r.SetPropertyBlock(_block);
@@ -106,7 +109,7 @@ namespace HouseOfSilence.Demon
 
             if (faceLight != null)
             {
-                faceLight.enabled = glowEnabled;
+                faceLight.enabled = glowEnabled && !Hidden;
                 faceLight.intensity = faceLightIntensity * open;
             }
         }

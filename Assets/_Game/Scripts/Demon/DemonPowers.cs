@@ -84,6 +84,9 @@ namespace HouseOfSilence.Demon
         [SerializeField] private AudioClip teleportDepartSound;
         [SerializeField] private AudioClip teleportArriveSound;
         [SerializeField, Min(0f)] private float teleportFlash = 0.45f;
+        [Tooltip("A l'arrivee, le demon prend l'apparence d'un autre survivant (jamais celui vise).")]
+        [SerializeField] private bool disguiseOnTeleport = true;
+        [SerializeField, Min(0.5f)] private float disguiseDuration = 10f;
 
         [Header("HUD")]
         [SerializeField] private bool showHud = true;
@@ -313,7 +316,30 @@ namespace HouseOfSilence.Demon
             PlayAt(teleportArriveSound, point);
             controller.Shake(0.06f, 0.4f);
             _flashUntil = Time.time + teleportFlash;
+
+            if (disguiseOnTeleport) Disguise(target, targets);
             return true;
+        }
+
+        /// <summary>Apparence d'un survivant tire au hasard, sauf la cible de la teleportation.</summary>
+        private void Disguise(PlayerCharacter target, List<PlayerCharacter> targets)
+        {
+            List<PlayerCharacter> others = new List<PlayerCharacter>();
+            foreach (PlayerCharacter t in targets)
+            {
+                if (t != target && t.transform.Find("SurvivorBody") != null) others.Add(t);
+            }
+
+            if (others.Count == 0) return;
+
+            DemonDisguise disguise = GetComponent<DemonDisguise>();
+            if (disguise == null) disguise = gameObject.AddComponent<DemonDisguise>();
+
+            PlayerCharacter look = others[Random.Range(0, others.Count)];
+            if (disguise.Begin(look, disguiseDuration, teleportArriveSound))
+            {
+                ShowMessage("Apparence : " + look.DisplayName + " (" + Mathf.RoundToInt(disguiseDuration) + " s)");
+            }
         }
 
         private PlayerCharacter Nearest(List<PlayerCharacter> targets)

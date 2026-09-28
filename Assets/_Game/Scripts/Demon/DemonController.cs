@@ -84,6 +84,7 @@ namespace HouseOfSilence.Demon
         public Camera Camera { get { return tpsCamera; } }
         public float CurrentSpeed { get { return new Vector3(_velocity.x, 0f, _velocity.z).magnitude; } }
         public float RunSpeed { get { return runSpeed; } }
+        public float WalkSpeed { get { return walkSpeed; } }
 
         /// <summary>Le joueur peut agir : demon controle et jeu en cours (pas de pause ni de carte).</summary>
         public bool InputAllowed { get { return _controlled && (inputGate == null || inputGate.InputEnabled); } }
