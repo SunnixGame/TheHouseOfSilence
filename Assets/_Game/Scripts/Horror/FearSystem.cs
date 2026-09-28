@@ -77,7 +77,7 @@ namespace HouseOfSilence.Horror
 
         [Header("Debug")]
         [SerializeField] private bool registerDebugCommand = true;
-        [SerializeField] private Key debugToggleKey = Key.F4;
+        [SerializeField] private Key debugToggleKey = Key.F12; // F4 = vue FPS / TPS du survivant
 
         // ------------------------------------------------------------------
 

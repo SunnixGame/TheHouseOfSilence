@@ -19836,7 +19836,7 @@ MonoBehaviour:
   gainMultiplier: 1
   recoveryMultiplier: 1
   registerDebugCommand: 1
-  debugToggleKey: 97
+  debugToggleKey: 105
 --- !u!114 &622228330
 MonoBehaviour:
   m_ObjectHideFlags: 0

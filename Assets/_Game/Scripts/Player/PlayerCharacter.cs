@@ -102,6 +102,12 @@ namespace HouseOfSilence.Player
             {
                 Debug.LogError("[PlayerCharacter] Aucune camera trouvee sous le joueur.", this);
             }
+
+            // F4 : vue FPS / TPS, disponible dans toutes les scenes sans reglage.
+            if (isLocalPlayer && playerCamera != null && GetComponent<SurvivorViewMode>() == null)
+            {
+                gameObject.AddComponent<SurvivorViewMode>();
+            }
         }
 
         private void OnEnable()

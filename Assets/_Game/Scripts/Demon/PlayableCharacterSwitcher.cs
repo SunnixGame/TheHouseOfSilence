@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 namespace HouseOfSilence.Demon
 {
     /// <summary>
-    /// Outil de test : F2 passe du survivant (vue FPS) au demon (vue TPS) et inversement.
+    /// Outil de test : F2 passe du survivant (vue FPS, ou TPS avec F4) au demon (vue TPS) et inversement.
     /// Le personnage non joue reste immobile dans le monde : en demon, le survivant
     /// devient une cible visible (corps affiche) pour tester les pouvoirs.
     /// </summary>
@@ -118,6 +118,7 @@ namespace HouseOfSilence.Demon
                     if (listener != null) listener.enabled = !demonMode;
                 }
 
+                // En vue TPS (F4), SurvivorViewMode reaffiche le corps au retour.
                 if (survivorBody != null) survivorBody.SetActive(demonMode);
 
                 // Test : on reprend le survivant bien vivant (tue par le demon juste avant).
@@ -159,7 +160,7 @@ namespace HouseOfSilence.Demon
 
             string text = _demonMode
                 ? "DEMON   ZQSD · souris · Maj courir · 1 Vision · 2 Cri · 3 Teleport · C pleurer · E tuer (a 1 m) · N vision nocturne   ·   F2 revenir au survivant"
-                : "F2  jouer le demon (test)";
+                : "F2  jouer le demon (test)   ·   F4  vue FPS / TPS";
             GUI.Label(new Rect(14f, Screen.height - 34f, 900f, 24f), text, _hintStyle);
         }
     }

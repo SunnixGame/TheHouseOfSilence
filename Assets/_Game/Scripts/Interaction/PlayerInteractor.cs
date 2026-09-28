@@ -45,6 +45,7 @@ namespace HouseOfSilence.Interaction
 
         private readonly RaycastHit[] _hits = new RaycastHit[12];
 
+        private SurvivorViewMode _viewMode;
         private IInteractable _currentTarget;
         private string _cachedPrompt = string.Empty;
         private string _cachedTitle = string.Empty;
@@ -210,6 +211,10 @@ namespace HouseOfSilence.Interaction
         {
             Vector3 origin = rayOrigin.position;
             Vector3 direction = rayOrigin.forward;
+
+            // Vue TPS : la camera est derriere le survivant, on vise depuis ses yeux.
+            if (_viewMode == null) _viewMode = GetComponent<SurvivorViewMode>();
+            if (_viewMode != null) origin += direction * _viewMode.AimRayOffset;
 
             if (drawDebugRay)
             {
