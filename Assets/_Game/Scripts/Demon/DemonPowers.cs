@@ -35,6 +35,18 @@ namespace HouseOfSilence.Demon
         [SerializeField, Min(0f)] private float visionCooldown = 20f;
         [SerializeField, ColorUsage(true, true)] private Color outlineColor = new Color(3f, 0.3f, 0.12f, 1f);
         [SerializeField] private Color fillColor = new Color(1f, 0.1f, 0.05f, 0.18f);
+        [Tooltip("Code couleur : une couleur par survivant (d'apres son identifiant), sur le contour, le losange et la carte. Vide = outlineColor pour tous.")]
+        [SerializeField] private Color[] survivorColors =
+        {
+            new Color(1f, 0.18f, 0.12f),  // rouge
+            new Color(0.1f, 0.85f, 1f),   // cyan
+            new Color(1f, 0.88f, 0.1f),   // jaune
+            new Color(0.25f, 1f, 0.3f),   // vert
+            new Color(0.75f, 0.3f, 1f),   // violet
+            new Color(1f, 0.4f, 0.8f),    // rose
+        };
+        [Tooltip("Intensite HDR du contour colore (le bloom le fait briller).")]
+        [SerializeField, Min(0f)] private float outlineIntensity = 3f;
         [Tooltip("Epaisseur du contour pres de la cible (m) ; il s'epaissit avec la distance.")]
         [SerializeField, Min(0f)] private float outlineWidth = 0.025f;
         [SerializeField] private bool showScreenMarkers = true;
@@ -221,12 +233,28 @@ namespace HouseOfSilence.Demon
 
             foreach (PlayerCharacter t in targets)
             {
-                RevealOutline.Show(t.gameObject, visionDuration, outlineColor, fillColor, outlineWidth, revealMaskMaterial, revealOutlineMaterial);
-                if (revealOnMap && _map != null) _map.Reveal(t.transform, visionDuration);
+                Color color = SurvivorColor(t);
+                Color outline = HasPalette ? color * outlineIntensity : outlineColor;
+                outline.a = 1f;
+                Color fill = HasPalette ? new Color(color.r, color.g, color.b, fillColor.a) : fillColor;
+
+                RevealOutline.Show(t.gameObject, visionDuration, outline, fill, outlineWidth, revealMaskMaterial, revealOutlineMaterial);
+                if (revealOnMap && _map != null) _map.Reveal(t.transform, visionDuration, color, t.DisplayName);
             }
 
             PlaySfx(visionSound, 0.8f);
             return true;
+        }
+
+        private bool HasPalette { get { return survivorColors != null && survivorColors.Length > 0; } }
+
+        /// <summary>Couleur du survivant : toujours la meme pour un identifiant donne.</summary>
+        private Color SurvivorColor(PlayerCharacter t)
+        {
+            if (!HasPalette) return new Color(1f, 0.2f, 0.1f);
+            Color c = survivorColors[Mathf.Abs(t.PlayerId) % survivorColors.Length];
+            c.a = 1f;
+            return c;
         }
 
         // ------------------------------------------------------------------
@@ -488,8 +516,9 @@ namespace HouseOfSilence.Demon
                     p = center + dir * k;
                 }
 
+                Color color = SurvivorColor(t);
                 float pulse = 1f + 0.2f * Mathf.Sin(Time.time * 10f);
-                GUI.color = new Color(1f, 0.2f, 0.1f, 0.95f);
+                GUI.color = new Color(color.r, color.g, color.b, 0.95f);
                 Matrix4x4 m = GUI.matrix;
                 GUIUtility.RotateAroundPivot(45f, p);
                 GUI.DrawTexture(new Rect(p.x - size * 0.5f * pulse, p.y - size * 0.5f * pulse, size * pulse, size * pulse), Texture2D.whiteTexture);
@@ -497,12 +526,12 @@ namespace HouseOfSilence.Demon
 
                 // Distance au-dessus du losange (sous lui, elle se perdrait dans la silhouette rouge).
                 float distance = Vector3.Distance(transform.position, t.transform.position);
-                string label = Mathf.RoundToInt(distance) + " m";
-                Rect rect = new Rect(p.x - 80f * scale, p.y - size - 24f * scale, 160f * scale, 22f * scale);
+                string label = t.DisplayName + "  " + Mathf.RoundToInt(distance) + " m";
+                Rect rect = new Rect(p.x - 130f * scale, p.y - size - 24f * scale, 260f * scale, 22f * scale);
                 GUI.color = Color.white;
                 _markerStyle.normal.textColor = new Color(0f, 0f, 0f, 0.85f);
                 GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), label, _markerStyle);
-                _markerStyle.normal.textColor = new Color(1f, 0.6f, 0.5f, 1f);
+                _markerStyle.normal.textColor = Color.Lerp(color, Color.white, 0.35f);
                 GUI.Label(rect, label, _markerStyle);
             }
         }

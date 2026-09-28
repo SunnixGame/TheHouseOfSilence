@@ -79,6 +79,8 @@ namespace HouseOfSilence.Level
             public Transform target;
             public Transform marker;
             public float until;
+            public Color color;
+            public string label;
         }
 
         private readonly List<Revealed> _revealed = new List<Revealed>();
@@ -140,6 +142,12 @@ namespace HouseOfSilence.Level
         /// <summary>Affiche la position exacte d'une cible sur la maquette pendant 'duration' secondes.</summary>
         public void Reveal(Transform target, float duration)
         {
+            Reveal(target, duration, revealColor, null);
+        }
+
+        /// <summary>Idem, avec la couleur et le nom propres a la cible (code couleur des survivants).</summary>
+        public void Reveal(Transform target, float duration, Color color, string label)
+        {
             if (target == null || playerMarker == null)
             {
                 return;
@@ -160,16 +168,16 @@ namespace HouseOfSilence.Level
             foreach (Renderer r in marker.GetComponentsInChildren<Renderer>())
             {
                 Material m = r.material; // instance : la balise du joueur garde sa couleur
-                if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", revealColor);
-                if (m.HasProperty("_Color")) m.SetColor("_Color", revealColor);
+                if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+                if (m.HasProperty("_Color")) m.SetColor("_Color", color);
                 if (m.HasProperty("_EmissionColor"))
                 {
                     m.EnableKeyword("_EMISSION");
-                    m.SetColor("_EmissionColor", revealColor * 2f);
+                    m.SetColor("_EmissionColor", color * 2f);
                 }
             }
 
-            _revealed.Add(new Revealed { target = target, marker = marker.transform, until = Time.time + duration });
+            _revealed.Add(new Revealed { target = target, marker = marker.transform, until = Time.time + duration, color = color, label = label });
         }
 
         private void UpdateRevealed()
@@ -632,10 +640,10 @@ namespace HouseOfSilence.Level
                 // Au-dessus du nom de la clairiere (qui s'affiche juste sur la balise).
                 Rect rect = new Rect(sp.x - 100f, Screen.height - sp.y - 52f, 200f, 24f);
                 float blink = 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 9f);
-                string text = revealLabel + "  " + Mathf.CeilToInt(r.until - Time.time) + " s";
+                string text = (string.IsNullOrEmpty(r.label) ? revealLabel : r.label) + "  " + Mathf.CeilToInt(r.until - Time.time) + " s";
                 _revealStyle.normal.textColor = new Color(0f, 0f, 0f, 0.85f);
                 GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), text, _revealStyle);
-                _revealStyle.normal.textColor = new Color(revealColor.r, revealColor.g, revealColor.b, blink);
+                _revealStyle.normal.textColor = new Color(r.color.r, r.color.g, r.color.b, blink);
                 GUI.Label(rect, text, _revealStyle);
             }
         }
