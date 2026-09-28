@@ -55,19 +55,19 @@ PrefabInstance:
     - target: {fileID: -6350302155612506009, guid: ab356a3ff7271e645b168f028442b1a2, type: 3}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 2100000, guid: bce03a53d1d4d7f46bbb74133815576a, type: 2}
+      objectReference: {fileID: 2100000, guid: 15734ac45b3852c479c22620525bf86d, type: 2}
     - target: {fileID: -3932603502869383144, guid: ab356a3ff7271e645b168f028442b1a2, type: 3}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 2100000, guid: bce03a53d1d4d7f46bbb74133815576a, type: 2}
+      objectReference: {fileID: 2100000, guid: 15734ac45b3852c479c22620525bf86d, type: 2}
     - target: {fileID: -3168332322100780308, guid: ab356a3ff7271e645b168f028442b1a2, type: 3}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 2100000, guid: bce03a53d1d4d7f46bbb74133815576a, type: 2}
+      objectReference: {fileID: 2100000, guid: 15734ac45b3852c479c22620525bf86d, type: 2}
     - target: {fileID: -799699300493800267, guid: ab356a3ff7271e645b168f028442b1a2, type: 3}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 2100000, guid: bce03a53d1d4d7f46bbb74133815576a, type: 2}
+      objectReference: {fileID: 2100000, guid: 15734ac45b3852c479c22620525bf86d, type: 2}
     - target: {fileID: 919132149155446097, guid: ab356a3ff7271e645b168f028442b1a2, type: 3}
       propertyPath: m_Name
       value: npc_csl_tshirt_00f_01_02bw
@@ -75,7 +75,7 @@ PrefabInstance:
     - target: {fileID: 2763372235562805478, guid: ab356a3ff7271e645b168f028442b1a2, type: 3}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 2100000, guid: bce03a53d1d4d7f46bbb74133815576a, type: 2}
+      objectReference: {fileID: 2100000, guid: 15734ac45b3852c479c22620525bf86d, type: 2}
     - target: {fileID: 3315940250297155510, guid: ab356a3ff7271e645b168f028442b1a2, type: 3}
       propertyPath: m_IsActive
       value: 0
