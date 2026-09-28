@@ -70,6 +70,8 @@ namespace HouseOfSilence.Demon
         private float _shake;
         private float _shakeAmplitude;
         private float _fovKick;
+        private Vector3 _lastPosition;
+        private float _measuredSpeed;
 
         /// <summary>Multiplicateur de vitesse applique par les pouvoirs (cri).</summary>
         public float SpeedMultiplier { get; set; } = 1f;
@@ -81,8 +83,14 @@ namespace HouseOfSilence.Demon
         public Vector2 MoveInput { get; private set; }
 
         public bool IsControlled { get { return _controlled; } }
+
+        /// <summary>
+        /// Joue par un autre joueur (en ligne) : ni entrees, ni gravite ; sa position arrive
+        /// du reseau et l'Animator suit la vitesse mesuree.
+        /// </summary>
+        public bool ExternallyDriven { get; set; }
         public Camera Camera { get { return tpsCamera; } }
-        public float CurrentSpeed { get { return new Vector3(_velocity.x, 0f, _velocity.z).magnitude; } }
+        public float CurrentSpeed { get { return ExternallyDriven ? _measuredSpeed : new Vector3(_velocity.x, 0f, _velocity.z).magnitude; } }
         public float RunSpeed { get { return runSpeed; } }
         public float WalkSpeed { get { return walkSpeed; } }
 
@@ -182,6 +190,21 @@ namespace HouseOfSilence.Demon
 
         private void Update()
         {
+            if (ExternallyDriven)
+            {
+                // Vitesse deduite du deplacement recu (pour la marche / course de l'Animator).
+                Vector3 delta = transform.position - _lastPosition;
+                delta.y = 0f;
+                float speed = Time.deltaTime > 0f ? delta.magnitude / Time.deltaTime : 0f;
+                _measuredSpeed = Mathf.Lerp(_measuredSpeed, speed < 20f ? speed : 0f, 1f - Mathf.Exp(-10f * Time.deltaTime));
+                _lastPosition = transform.position;
+                _velocity = Vector3.zero;
+                MoveInput = Vector2.zero;
+                UpdateAnimator();
+                return;
+            }
+
+            _lastPosition = transform.position;
             bool allowed = InputAllowed;
 
             Vector2 move = allowed && _move != null ? _move.ReadValue<Vector2>() : Vector2.zero;

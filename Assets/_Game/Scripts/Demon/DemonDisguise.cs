@@ -119,8 +119,9 @@ namespace HouseOfSilence.Demon
         {
             if (!IsActive) return;
 
-            // Tue ou change de personnage : le masque tombe d'un coup.
-            if ((_kill != null && _kill.IsExecuting) || (_controller != null && !_controller.IsControlled))
+            // Tue ou change de personnage : le masque tombe d'un coup (sauf demon joue par un autre joueur).
+            bool abandoned = _controller != null && !_controller.IsControlled && !_controller.ExternallyDriven;
+            if ((_kill != null && _kill.IsExecuting) || abandoned)
             {
                 EndImmediate();
                 return;

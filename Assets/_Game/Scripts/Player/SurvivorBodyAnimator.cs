@@ -22,6 +22,8 @@ namespace HouseOfSilence.Player
         private FlyMode _fly;
         private int _speedHash;
         private bool _hasParameter;
+        private Vector3 _lastPosition;
+        private float _measuredSpeed;
 
         private void Awake()
         {
@@ -38,6 +40,13 @@ namespace HouseOfSilence.Player
 
         private void Update()
         {
+            // Vitesse reelle du corps : sert quand le survivant est deplace par le reseau.
+            Vector3 delta = transform.position - _lastPosition;
+            delta.y = 0f;
+            float measured = Time.deltaTime > 0f ? delta.magnitude / Time.deltaTime : 0f;
+            _measuredSpeed = Mathf.Lerp(_measuredSpeed, measured < 20f ? measured : 0f, 1f - Mathf.Exp(-10f * Time.deltaTime));
+            _lastPosition = transform.position;
+
             if (animator == null || !animator.isActiveAndEnabled || animator.runtimeAnimatorController == null)
             {
                 _hasParameter = false;
@@ -56,13 +65,14 @@ namespace HouseOfSilence.Player
         /// <summary>0 a l'arret, 1 a la vitesse de marche, 2 a la vitesse de course.</summary>
         private float NormalizedSpeed()
         {
-            // Survivant fige (on joue le demon) ou en vol libre : pas de pas.
-            if (_motor == null || !_motor.enabled || (_fly != null && _fly.IsFlying))
+            // Vol libre : pas de pas.
+            if (_motor == null || (_fly != null && _fly.IsFlying))
             {
                 return 0f;
             }
 
-            float speed = _motor.CurrentSpeed;
+            // Survivant non joue ici : fige (vitesse nulle) ou joue par un autre joueur en ligne.
+            float speed = _motor.enabled ? _motor.CurrentSpeed : _measuredSpeed;
             float walk = Mathf.Max(0.1f, _motor.WalkSpeed);
             float run = Mathf.Max(walk + 0.1f, _motor.RunSpeed);
 

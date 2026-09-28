@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using HouseOfSilence.Network;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -204,6 +205,7 @@ namespace HouseOfSilence.Demon
             spot.y = transform.position.y;
             controller.TeleportTo(spot, Quaternion.LookRotation(-toDemon));
             victim.Kill(transform, victimDelay);
+            NetBridge.RaiseDemonKilled(this, victim, false);
 
             if (animator != null && animator.runtimeAnimatorController != null) animator.SetTrigger(killTrigger);
             if (sfxSource != null && killScream != null) sfxSource.PlayOneShot(killScream, screamVolume);
@@ -244,7 +246,10 @@ namespace HouseOfSilence.Demon
             victim.Kill(transform, jumpscareDeathDelay);
 
             if (animator != null && animator.runtimeAnimatorController != null) animator.SetTrigger(jumpscareTrigger);
-            jumpscare.Play(_head != null ? _head : transform, controller.Camera);
+
+            // En ligne, la victime est jouee ailleurs : c'est sur son ecran que passe le jumpscare.
+            if (NetBridge.Online) NetBridge.RaiseDemonKilled(this, victim, true);
+            else jumpscare.Play(_head != null ? _head : transform, controller.Camera);
 
             yield return new WaitForSeconds(jumpscareDuration);
 
@@ -253,6 +258,52 @@ namespace HouseOfSilence.Demon
             _target = null;
             _message = "JOUEUR TUE";
             _messageUntil = Time.time + 3f;
+        }
+
+        /// <summary>
+        /// Mise a mort jouee par un autre joueur (en ligne) : animation et sons du demon,
+        /// la victime s'effondre ; si c'est notre survivant, le jumpscare passe sur notre ecran.
+        /// Le demon est deja place face a la victime (sa position arrive du reseau).
+        /// </summary>
+        public void PlayRemoteKill(SurvivorDeath victim, bool jumpscare, bool victimIsLocal)
+        {
+            if (victim == null) return;
+
+            DemonDisguise disguise = GetComponent<DemonDisguise>();
+            if (disguise != null) disguise.EndImmediate();
+
+            StartCoroutine(RemoteKill(victim, jumpscare, victimIsLocal));
+        }
+
+        private IEnumerator RemoteKill(SurvivorDeath victim, bool jumpscare, bool victimIsLocal)
+        {
+            _executing = true;
+            bool hasAnimator = animator != null && animator.runtimeAnimatorController != null;
+
+            if (jumpscare)
+            {
+                victim.Kill(transform, jumpscareDeathDelay);
+                if (hasAnimator) animator.SetTrigger(jumpscareTrigger);
+
+                SurvivorJumpscare scare = victim.GetComponent<SurvivorJumpscare>();
+                if (victimIsLocal && scare != null) scare.Play(_head != null ? _head : transform, null);
+
+                yield return new WaitForSeconds(jumpscareDuration);
+            }
+            else
+            {
+                victim.Kill(transform, victimDelay);
+                if (hasAnimator) animator.SetTrigger(killTrigger);
+                if (sfxSource != null && killScream != null) sfxSource.PlayOneShot(killScream, screamVolume);
+
+                yield return new WaitForSeconds(impactTime);
+
+                if (sfxSource != null && impactSound != null) sfxSource.PlayOneShot(impactSound, impactVolume);
+
+                yield return new WaitForSeconds(Mathf.Max(0f, killDuration - impactTime));
+            }
+
+            _executing = false;
         }
 
         // ------------------------------------------------------------------

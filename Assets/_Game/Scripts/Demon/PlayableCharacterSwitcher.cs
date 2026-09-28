@@ -49,6 +49,7 @@ namespace HouseOfSilence.Demon
         private GUIStyle _hintStyle;
         private GUIStyle _nameStyle;
         private float _showNameUntil;
+        private bool _locked;
 
         /// <summary>On joue le demon.</summary>
         public bool DemonMode { get { return _current >= 0 && _current >= _survivors.Count; } }
@@ -57,6 +58,41 @@ namespace HouseOfSilence.Demon
         public PlayerCharacter ControlledSurvivor { get { return _current >= 0 && _current < _survivors.Count ? _survivors[_current] : null; } }
 
         private int CharacterCount { get { return _survivors.Count + (demon != null ? 1 : 0); } }
+
+        /// <summary>
+        /// Tous les personnages jouables, dans un ordre identique sur chaque machine :
+        /// survivant d'origine, PNJ par identifiant, puis le demon.
+        /// </summary>
+        public List<Component> Characters()
+        {
+            CollectSurvivors();
+            List<Component> all = new List<Component>(_survivors);
+            if (demon != null) all.Add(demon);
+            return all;
+        }
+
+        /// <summary>
+        /// En ligne : donne le controle de ce personnage (survivant ou demon) et bloque F2.
+        /// Le demon, s'il n'est pas le notre, est pilote a distance.
+        /// </summary>
+        public void ControlOnly(Component character)
+        {
+            CollectSurvivors();
+            _locked = true;
+
+            int index = character == demon && demon != null ? _survivors.Count : _survivors.IndexOf(character as PlayerCharacter);
+            if (index < 0) return;
+
+            if (demon != null) demon.ExternallyDriven = character != demon;
+            Select(index, false);
+        }
+
+        /// <summary>Fin de partie en ligne : F2 et le demon local redeviennent disponibles.</summary>
+        public void Unlock()
+        {
+            _locked = false;
+            if (demon != null) demon.ExternallyDriven = false;
+        }
 
         private void Awake()
         {
@@ -110,7 +146,7 @@ namespace HouseOfSilence.Demon
 
             bool allowed = _survivorInput == null || _survivorInput.InputEnabled;
 
-            if (toggle && enableSwitch && allowed && CharacterCount > 1)
+            if (toggle && enableSwitch && !_locked && allowed && CharacterCount > 1)
             {
                 CollectSurvivors();
                 Select((_current + 1) % CharacterCount, true);
@@ -130,7 +166,7 @@ namespace HouseOfSilence.Demon
             bool demonMode = DemonMode;
 
             _survivors.Clear();
-            foreach (PlayerCharacter p in FindObjectsByType<PlayerCharacter>(FindObjectsSortMode.None))
+            foreach (PlayerCharacter p in FindObjectsByType<PlayerCharacter>())
             {
                 if (p != null && p.isActiveAndEnabled) _survivors.Add(p);
             }
@@ -230,7 +266,7 @@ namespace HouseOfSilence.Demon
 
         private void OnGUI()
         {
-            if (!enableSwitch || !showHint || SurvivorJumpscare.AnyPlaying || (_survivorInput != null && !_survivorInput.InputEnabled))
+            if ((!enableSwitch && !_locked) || !showHint || SurvivorJumpscare.AnyPlaying || (_survivorInput != null && !_survivorInput.InputEnabled))
             {
                 return;
             }
@@ -248,7 +284,7 @@ namespace HouseOfSilence.Demon
             string text = DemonMode
                 ? "DEMON   ZQSD · souris · Maj courir · 1 Vision · 2 Cri · 3 Teleport · C pleurer · E tuer (a 1 m) · N vision nocturne   ·   F2 personnage suivant"
                 : "Vous jouez : " + who + "   ·   F2  personnage suivant   ·   F4  vue FPS / TPS";
-            GUI.Label(new Rect(14f, Screen.height - 34f, 1100f, 24f), text, _hintStyle);
+            if (!_locked) GUI.Label(new Rect(14f, Screen.height - 34f, 1100f, 24f), text, _hintStyle);
 
             // Nom du personnage tire, quelques secondes apres chaque changement.
             float left = _showNameUntil - Time.time;

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using HouseOfSilence.Core;
 using HouseOfSilence.Level;
+using HouseOfSilence.Network;
 using HouseOfSilence.Player;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -266,11 +267,8 @@ namespace HouseOfSilence.Demon
 
         private bool ActivateScream()
         {
-            if (screamSource != null && screamClip != null)
-            {
-                screamSource.maxDistance = screamAudibleDistance;
-                screamSource.PlayOneShot(screamClip, screamVolume);
-            }
+            PlayScreamSound();
+            NetBridge.RaiseDemonScreamed(this);
 
             Noise.Emit(transform.position, screamNoiseRadius, NoiseType.Monster, gameObject);
 
@@ -281,6 +279,16 @@ namespace HouseOfSilence.Demon
             }
 
             return true;
+        }
+
+        /// <summary>Le cri, entendu de loin (aussi joue quand le demon est pilote par un autre joueur).</summary>
+        public void PlayScreamSound()
+        {
+            if (screamSource != null && screamClip != null)
+            {
+                screamSource.maxDistance = screamAudibleDistance;
+                screamSource.PlayOneShot(screamClip, screamVolume);
+            }
         }
 
         // ------------------------------------------------------------------
@@ -306,7 +314,8 @@ namespace HouseOfSilence.Demon
                 return false;
             }
 
-            PlayAt(teleportDepartSound, transform.position);
+            Vector3 from = transform.position;
+            PlayAt(teleportDepartSound, from);
 
             Vector3 toTarget = target.transform.position - point;
             toTarget.y = 0f;
@@ -317,8 +326,24 @@ namespace HouseOfSilence.Demon
             controller.Shake(0.06f, 0.4f);
             _flashUntil = Time.time + teleportFlash;
 
+            NetBridge.RaiseDemonTeleported(this, from, point);
             if (disguiseOnTeleport) Disguise(target, targets);
             return true;
+        }
+
+        /// <summary>Sons de depart et d'arrivee d'une teleportation faite par un autre joueur.</summary>
+        public void PlayTeleportSounds(Vector3 from, Vector3 to)
+        {
+            PlayAt(teleportDepartSound, from);
+            PlayAt(teleportArriveSound, to);
+        }
+
+        /// <summary>Prend l'apparence de 'look' (aussi appele quand le demon est pilote par un autre joueur).</summary>
+        public bool ApplyDisguise(PlayerCharacter look, float duration)
+        {
+            DemonDisguise disguise = GetComponent<DemonDisguise>();
+            if (disguise == null) disguise = gameObject.AddComponent<DemonDisguise>();
+            return disguise.Begin(look, duration, teleportArriveSound);
         }
 
         /// <summary>Apparence d'un survivant tire au hasard, sauf la cible de la teleportation.</summary>
@@ -332,13 +357,11 @@ namespace HouseOfSilence.Demon
 
             if (others.Count == 0) return;
 
-            DemonDisguise disguise = GetComponent<DemonDisguise>();
-            if (disguise == null) disguise = gameObject.AddComponent<DemonDisguise>();
-
             PlayerCharacter look = others[Random.Range(0, others.Count)];
-            if (disguise.Begin(look, disguiseDuration, teleportArriveSound))
+            if (ApplyDisguise(look, disguiseDuration))
             {
                 ShowMessage("Apparence : " + look.DisplayName + " (" + Mathf.RoundToInt(disguiseDuration) + " s)");
+                NetBridge.RaiseDemonDisguised(this, look, disguiseDuration);
             }
         }
 

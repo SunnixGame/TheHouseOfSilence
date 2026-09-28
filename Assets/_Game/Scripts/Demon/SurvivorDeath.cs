@@ -54,6 +54,14 @@ namespace HouseOfSilence.Demon
             IsDead = true;
             _killer = killer;
 
+            // Plus un pas : le corps va tomber (le survivant peut etre joue, en ligne).
+            PlayerMotor motor = GetComponent<PlayerMotor>();
+            if (motor != null)
+            {
+                motor.StopImmediately();
+                motor.MovementLocked = true;
+            }
+
             if (killer != null)
             {
                 Vector3 toKiller = killer.position - transform.position;
@@ -72,6 +80,9 @@ namespace HouseOfSilence.Demon
             IsDead = false;
             _dieAt = -1f;
             _killer = null;
+
+            PlayerMotor motor = GetComponent<PlayerMotor>();
+            if (motor != null) motor.MovementLocked = false;
 
             if (Ragdoll != null && Ragdoll.IsActive)
             {

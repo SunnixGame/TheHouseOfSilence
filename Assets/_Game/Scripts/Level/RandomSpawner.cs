@@ -46,14 +46,28 @@ namespace HouseOfSilence.Level
 
         private void Start()
         {
+            SpawnAll();
+        }
+
+        /// <summary>
+        /// Tire une nouvelle clairiere pour chaque personnage et l'y teleporte. Appele au
+        /// lancement, et par l'hote au debut d'une partie en ligne (positions ensuite envoyees).
+        /// </summary>
+        public void SpawnAll()
+        {
+            _usedClearings.Clear();
+            _survivorSpawns.Clear();
+            _spawned.Clear();
+
             if (locations == null || locations.All.Count == 0)
             {
                 Debug.LogWarning("[RandomSpawner] Aucune clairiere (ForestLocations) : apparition inchangee.", this);
                 return;
             }
 
-            PlayerCharacter[] survivors = FindObjectsByType<PlayerCharacter>(FindObjectsSortMode.InstanceID);
-            DemonController[] demons = FindObjectsByType<DemonController>(FindObjectsSortMode.InstanceID);
+            PlayerCharacter[] survivors = FindObjectsByType<PlayerCharacter>();
+            DemonController[] demons = FindObjectsByType<DemonController>();
+            System.Array.Sort(survivors, (a, b) => a.PlayerId.CompareTo(b.PlayerId)); // le survivant d'origine (0) en premier
 
             foreach (PlayerCharacter s in survivors) _spawned.Add(s.transform);
             foreach (DemonController d in demons) _spawned.Add(d.transform);
