@@ -7,7 +7,7 @@ namespace HouseOfSilence.Network
     /// <summary>
     /// Personnage joue par un autre joueur : suit en douceur la position, l'orientation,
     /// le regard (lampe torche) et l'etat (lampe allumee, pleurs du demon) recus du reseau.
-    /// Ajoute et retire par NetGame.
+    /// Ajoute et retire par NetworkGameManager.
     /// </summary>
     [DisallowMultipleComponent]
     public class NetPuppet : MonoBehaviour

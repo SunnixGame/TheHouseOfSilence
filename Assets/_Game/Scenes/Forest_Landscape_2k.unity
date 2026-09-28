@@ -30000,14 +30000,15 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 50881ef00f2c43649f405145f533114b, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HouseOfSilence.Network.NetGame
-  defaultSessionName: partie
+  m_EditorClassIdentifier: Assembly-CSharp::HouseOfSilence.Network.NetworkGameManager
   maxPlayers: 5
   showMenuAtStart: 1
   menuBinding: <Keyboard>/f12
+  loadTimeout: 30
   statesPerSecond: 20
-  switcher: {fileID: 171662810}
-  spawner: {fileID: 1914909425}
+  thunderClips:
+  - {fileID: 8300000, guid: 716538ac5dae5be49aaee6903b81d60d, type: 3}
+  - {fileID: 8300000, guid: a14375330a3298641a3999431eb04d28, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

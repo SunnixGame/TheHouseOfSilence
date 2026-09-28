@@ -8,7 +8,7 @@ namespace HouseOfSilence.Network
     /// <summary>
     /// Pont entre le jeu et le reseau, sans dependance a Netcode : le code du jeu signale
     /// ici ce que fait le personnage joue localement (le demon tue, crie, se teleporte,
-    /// se deguise) et NetGame le relaie aux autres joueurs. Hors ligne, personne n'ecoute.
+    /// se deguise) et NetworkGameManager le relaie aux autres joueurs. Hors ligne, personne n'ecoute.
     /// </summary>
     public static class NetBridge
     {

@@ -1,53 +1,51 @@
 using System.Collections.Generic;
 using HouseOfSilence.Interaction;
 using HouseOfSilence.Level;
+using HouseOfSilence.Network;
 using HouseOfSilence.Player;
+using HouseOfSilence.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace HouseOfSilence.Demon
 {
     /// <summary>
-    /// Mode spectateur : quand le survivant joue ici est mort (jumpscare termine), sa camera
-    /// suit les autres personnages encore en vie, survivants et demon, en vue a la troisieme
-    /// personne. Clic gauche / fleche droite : suivant ; clic droit / fleche gauche :
-    /// precedent ; souris : tourner autour ; molette : zoom. Le mode se ferme tout seul si le
-    /// survivant se releve (outil de test F2) ou si l'on change de personnage.
+    /// Mode spectateur : quand le survivant joue ici est mort (jumpscare termine), il
+    /// devient spectateur.
+    ///  - sa camera et son ecoute audio sont coupees, son effet VHS aussi (local) ;
+    ///  - une camera spectateur neuve (SpectatorCameraController) suit les joueurs encore
+    ///    en vie ; la nuit, le brouillard et la meteo (globaux) restent les memes ;
+    ///  - clic gauche / fleche droite : suivant ; clic droit / fleche gauche : precedent ;
+    ///  - le joueur observe est affiche en haut de l'ecran.
+    /// En ligne, la liste vient de GameStateManager (le demon y reste anonyme) ; en solo,
+    /// ce sont les personnages encore en vie. Se ferme si le survivant se releve (F2 en
+    /// solo) ou si l'on change de personnage.
     ///
     /// Ajoute automatiquement par PlayableCharacterSwitcher.
     /// </summary>
-    [DefaultExecutionOrder(300)] // apres SurvivorViewMode (200) : c'est nous qui placons la camera
     [DisallowMultipleComponent]
-    public class SpectatorMode : MonoBehaviour
+    public class SpectatorController : MonoBehaviour
     {
         [SerializeField, Min(0f)] private float delayAfterDeath = 2.5f;
-        [SerializeField] private float pivotHeight = 1.3f;
-        [SerializeField] private float distance = 3.5f;
-        [SerializeField] private Vector2 distanceRange = new Vector2(1.5f, 10f);
-        [SerializeField] private Vector2 pitchRange = new Vector2(-20f, 70f);
-        [SerializeField, Min(0f)] private float mouseSensitivity = 0.12f;
-        [SerializeField, Min(0f)] private float zoomSensitivity = 0.004f;
-        [SerializeField, Min(0f)] private float collisionRadius = 0.2f;
 
         private PlayableCharacterSwitcher _switcher;
         private ZoneTitleDisplay _zoneTitle;
+        private CompassHud _compass;
 
         private PlayerCharacter _me;
         private bool _active;
         private float _deadSince = -1f;
+        private SpectatorCameraController _camera;
         private readonly List<Component> _targets = new List<Component>();
         private Component _target;
-        private float _yaw;
-        private float _pitch = 15f;
+        private float _nextRefresh;
 
         private readonly List<Behaviour> _disabled = new List<Behaviour>();
+        private AudioListener _myListener;
 
         private InputAction _next;
         private InputAction _previous;
-        private InputAction _look;
-        private InputAction _zoom;
         private int _step;
-        private float _nextRefresh;
 
         private GUIStyle _titleStyle;
         private GUIStyle _hintStyle;
@@ -58,6 +56,7 @@ namespace HouseOfSilence.Demon
         {
             _switcher = GetComponent<PlayableCharacterSwitcher>();
             _zoneTitle = FindAnyObjectByType<ZoneTitleDisplay>();
+            _compass = FindAnyObjectByType<CompassHud>();
         }
 
         private void OnEnable()
@@ -72,27 +71,22 @@ namespace HouseOfSilence.Demon
             _previous.AddBinding("<Keyboard>/leftArrow");
             _previous.performed += _ => _step--;
 
-            _look = new InputAction("SpectateLook", InputActionType.Value, "<Mouse>/delta");
-            _zoom = new InputAction("SpectateZoom", InputActionType.Value, "<Mouse>/scroll/y");
-
             _next.Enable();
             _previous.Enable();
-            _look.Enable();
-            _zoom.Enable();
         }
 
         private void OnDisable()
         {
             if (_active) Exit();
 
-            foreach (InputAction a in new[] { _next, _previous, _look, _zoom })
+            foreach (InputAction a in new[] { _next, _previous })
             {
                 if (a == null) continue;
                 a.Disable();
                 a.Dispose();
             }
 
-            _next = _previous = _look = _zoom = null;
+            _next = _previous = null;
         }
 
         private void Update()
@@ -115,15 +109,12 @@ namespace HouseOfSilence.Demon
             if (_active && (!want || me != _me)) Exit();
             if (!_active && want) Enter(me);
 
-            if (!_active)
-            {
-                _step = 0;
-                return;
-            }
-
-            bool inputAllowed = _me.Input == null || _me.Input.InputEnabled;
             int step = _step;
             _step = 0;
+            if (!_active) return;
+
+            bool inputAllowed = _me.Input == null || _me.Input.InputEnabled;
+            if (_camera != null) _camera.InputAllowed = inputAllowed;
 
             if (Time.time >= _nextRefresh)
             {
@@ -131,39 +122,9 @@ namespace HouseOfSilence.Demon
                 RefreshTargets();
             }
 
+            // La cible est morte ou partie : on passe a la suivante.
             if (_target == null || !_targets.Contains(_target)) step = step != 0 ? step : 1;
-            if (inputAllowed && step != 0) Cycle(step);
-
-            if (inputAllowed)
-            {
-                Vector2 look = _look.ReadValue<Vector2>() * mouseSensitivity;
-                _yaw += look.x;
-                _pitch = Mathf.Clamp(_pitch - look.y, pitchRange.x, pitchRange.y);
-                distance = Mathf.Clamp(distance - _zoom.ReadValue<float>() * zoomSensitivity, distanceRange.x, distanceRange.y);
-            }
-        }
-
-        private void LateUpdate()
-        {
-            if (!_active || _me == null || _me.Camera == null) return;
-
-            // Personne a regarder : on reste au-dessus de son propre corps.
-            Transform focus = _target != null ? _target.transform : _me.transform;
-            Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
-            Vector3 pivot = focus.position + Vector3.up * pivotHeight;
-            Vector3 dir = rotation * Vector3.back;
-            float allowed = distance;
-
-            RaycastHit[] hits = Physics.SphereCastAll(pivot, collisionRadius, dir, distance, ~0, QueryTriggerInteraction.Ignore);
-            foreach (RaycastHit h in hits)
-            {
-                if (h.distance <= 0f || h.collider.transform.IsChildOf(focus) || h.collider.transform.IsChildOf(_me.transform)) continue;
-                if (h.collider.attachedRigidbody != null && !h.collider.attachedRigidbody.isKinematic) continue; // cadavres
-                allowed = Mathf.Min(allowed, h.distance);
-            }
-
-            Transform cam = _me.Camera.transform;
-            cam.SetPositionAndRotation(pivot + dir * Mathf.Max(0.3f, allowed), rotation);
+            if (step != 0 && (inputAllowed || _target == null || !_targets.Contains(_target))) Cycle(step);
         }
 
         // ------------------------------------------------------------------
@@ -173,12 +134,27 @@ namespace HouseOfSilence.Demon
             _me = me;
             _active = true;
             _target = null;
-
-            // Le mort ne regarde, ne vole et n'interagit plus : sa camera sert de camera spectateur.
             _disabled.Clear();
+
+            // Le mort ne regarde, ne vole et n'interagit plus ; son effet VHS (local) s'eteint.
             Disable(me.GetComponent<PlayerLook>());
             Disable(me.GetComponent<FlyMode>());
             Disable(me.GetComponent<PlayerInteractor>());
+            Disable(me.GetComponent<Flashlight>());
+            Disable(me.GetComponent<DemonProximityVHS>());
+
+            // Sa camera (avec le quad VHS et les lumieres de jumpscare) est coupee...
+            Camera own = me.Camera;
+            if (own != null)
+            {
+                _myListener = own.GetComponent<AudioListener>();
+                Disable(_myListener);
+                Disable(own);
+            }
+
+            // ... et remplacee par une camera spectateur neuve.
+            _camera = SpectatorCameraController.Create(own);
+            if (_compass != null) _compass.SetView(_camera.transform);
 
             RefreshTargets();
             Cycle(1);
@@ -186,6 +162,9 @@ namespace HouseOfSilence.Demon
 
         private void Exit()
         {
+            if (_camera != null) Destroy(_camera.gameObject);
+            _camera = null;
+
             foreach (Behaviour b in _disabled)
             {
                 if (b != null) b.enabled = true;
@@ -193,7 +172,11 @@ namespace HouseOfSilence.Demon
 
             _disabled.Clear();
 
-            if (_zoneTitle != null && _me != null) _zoneTitle.SetPlayer(_me.transform);
+            if (_me != null)
+            {
+                if (_zoneTitle != null) _zoneTitle.SetPlayer(_me.transform);
+                if (_compass != null && _me.Camera != null) _compass.SetView(_me.Camera.transform);
+            }
 
             _active = false;
             _target = null;
@@ -207,11 +190,32 @@ namespace HouseOfSilence.Demon
             _disabled.Add(b);
         }
 
-        /// <summary>Personnages encore en vie, sauf soi : survivants puis demon.</summary>
+        /// <summary>Joueurs encore en vie, sauf soi.</summary>
         private void RefreshTargets()
         {
             _targets.Clear();
             if (_switcher == null) return;
+
+            NetworkGameManager game = NetworkGameManager.Instance;
+            bool online = NetBridge.Online && game != null && game.GameState.View.Count > 0;
+
+            if (online)
+            {
+                // Survivants joues et vivants (d'apres l'hote), puis la creature elle-meme.
+                foreach (PlayerView v in game.GameState.View)
+                {
+                    if (v.IsMe || !v.Alive || !v.Connected || v.Character < 0) continue;
+                    Component c = v.Character < game.Characters.Count ? game.Characters[v.Character] : null;
+                    if (c != null && !(c is DemonController) && !_targets.Contains(c)) _targets.Add(c);
+                }
+
+                foreach (Component c in game.Characters)
+                {
+                    if (c is DemonController) _targets.Add(c);
+                }
+
+                return;
+            }
 
             foreach (Component c in _switcher.Characters())
             {
@@ -229,6 +233,7 @@ namespace HouseOfSilence.Demon
             if (_targets.Count == 0)
             {
                 _target = null;
+                if (_camera != null && _me != null) _camera.SetTarget(_me.transform);
                 return;
             }
 
@@ -237,8 +242,23 @@ namespace HouseOfSilence.Demon
             index = ((index + step) % _targets.Count + _targets.Count) % _targets.Count;
 
             _target = _targets[index];
-            _yaw = _target.transform.eulerAngles.y;
+            if (_camera != null) _camera.SetTarget(_target.transform);
             if (_zoneTitle != null) _zoneTitle.SetPlayer(_target.transform);
+        }
+
+        private string TargetName()
+        {
+            if (_target == null) return "personne (tout le monde est mort)";
+
+            NetworkGameManager game = NetworkGameManager.Instance;
+            if (NetBridge.Online && game != null)
+            {
+                int index = game.Characters.IndexOf(_target);
+                if (index >= 0) return game.NameOf(index);
+            }
+
+            PlayerCharacter survivor = _target as PlayerCharacter;
+            return survivor != null ? survivor.DisplayName : "Le Demon";
         }
 
         private void OnGUI()
@@ -253,15 +273,8 @@ namespace HouseOfSilence.Demon
                 _hintStyle.normal.textColor = new Color(0.85f, 0.82f, 0.78f, 0.8f);
             }
 
-            string who = _target == null ? "personne (tout le monde est mort)" : Name(_target);
-            GUI.Label(new Rect(0f, 18f, Screen.width, 30f), "MODE SPECTATEUR  —  vous regardez : " + who, _titleStyle);
-            GUI.Label(new Rect(0f, 46f, Screen.width, 22f), "Clic gauche / →  suivant   ·   Clic droit / ←  precedent   ·   souris : tourner   ·   molette : zoom", _hintStyle);
-        }
-
-        private static string Name(Component c)
-        {
-            PlayerCharacter survivor = c as PlayerCharacter;
-            return survivor != null ? survivor.DisplayName : "Le Demon";
+            GUI.Label(new Rect(0f, 18f, Screen.width, 30f), "SPECTATEUR  —  vous observez : " + TargetName(), _titleStyle);
+            GUI.Label(new Rect(0f, 46f, Screen.width, 22f), "Clic gauche / →  suivant   ·   Clic droit / ←  precedent   ·   souris : tourner   ·   molette : zoom   ·   TAB : joueurs", _hintStyle);
         }
     }
 }

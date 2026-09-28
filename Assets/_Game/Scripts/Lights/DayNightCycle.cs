@@ -129,6 +129,22 @@ namespace HouseOfSilence.Lights
         private float _messageUntil;
         private GUIStyle _messageStyle;
 
+        /// <summary>
+        /// Heure imposee de l'exterieur (partie en ligne : l'hote la donne, NetworkTimeOfDay
+        /// la pose) : plus d'avance propre, de transition ni de touche F3.
+        /// </summary>
+        public bool ExternallyDriven { get; set; }
+
+        /// <summary>Meteo : multiplie la densite du brouillard (1 = normal, brume > 1).</summary>
+        public float FogMultiplier { get; set; } = 1f;
+
+        /// <summary>Meteo : eclair en cours, de 0 a 1 (illumine l'ambiance et le brouillard).</summary>
+        public float LightningFlash { get; set; }
+
+        [Header("Meteo (eclairs)")]
+        [SerializeField] private Color lightningAmbient = new Color(0.55f, 0.6f, 0.75f);
+        [SerializeField] private Color lightningFog = new Color(0.35f, 0.38f, 0.48f);
+
         /// <summary>Heure courante (0 a 24).</summary>
         public float TimeOfDay
         {
@@ -195,6 +211,13 @@ namespace HouseOfSilence.Lights
             if (!Application.isPlaying)
             {
                 return; // en edition : applique seulement quand l'Inspector change (OnValidate)
+            }
+
+            if (ExternallyDriven)
+            {
+                _togglePending = false;
+                _transitionStart = -1f;
+                return; // NetworkTimeOfDay pose l'heure (TimeOfDay) et applique
             }
 
             if (_togglePending)
@@ -364,16 +387,18 @@ namespace HouseOfSilence.Lights
                 RenderSettings.sun = main;
             }
 
+            float flash = Mathf.Clamp01(LightningFlash);
+
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = ambientColor.Evaluate(t);
+            RenderSettings.ambientLight = Color.Lerp(ambientColor.Evaluate(t), lightningAmbient, flash);
             RenderSettings.reflectionIntensity = Mathf.Clamp01(reflectionIntensity.Evaluate(t));
 
             if (controlFog)
             {
                 RenderSettings.fog = true;
                 RenderSettings.fogMode = FogMode.ExponentialSquared;
-                RenderSettings.fogColor = fogColor.Evaluate(t);
-                RenderSettings.fogDensity = Mathf.Max(0f, fogDensity.Evaluate(t));
+                RenderSettings.fogColor = Color.Lerp(fogColor.Evaluate(t), lightningFog, flash);
+                RenderSettings.fogDensity = Mathf.Max(0f, fogDensity.Evaluate(t) * Mathf.Max(0f, FogMultiplier));
             }
 
             ApplySky(t, sunValue);
