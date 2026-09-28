@@ -127,21 +127,18 @@ namespace HouseOfSilence.Network
                 animator.Update(0f);
             }
 
-            // Cadrage : haut du corps.
-            Bounds bounds = new Bounds(copy.transform.position, Vector3.zero);
-            bool any = false;
-            foreach (Renderer r in copy.GetComponentsInChildren<Renderer>(true))
+            // Cadrage sur le squelette (les boites des meshes animes ne sont pas fiables) :
+            // du haut de la tete au bassin, centre sur la tete.
+            Vector3 focus;
+            float frameHeight;
+            if (!FrameFromBones(animator, out focus, out frameHeight))
             {
-                if (!r.enabled) continue;
-                if (any) bounds.Encapsulate(r.bounds);
-                else bounds = r.bounds;
-                any = true;
+                Bounds bounds = new Bounds(copy.transform.position + Vector3.up, Vector3.one * 1.8f);
+                frameHeight = bounds.size.y * framing;
+                focus = new Vector3(bounds.center.x, bounds.max.y - frameHeight * 0.5f, bounds.center.z);
             }
 
-            float height = Mathf.Max(0.5f, bounds.size.y);
-            float frameHeight = height * framing;
-            Vector3 focus = new Vector3(bounds.center.x, bounds.max.y - frameHeight * 0.5f, bounds.center.z);
-            float distance = frameHeight * 0.5f / Mathf.Tan(fieldOfView * 0.5f * Mathf.Deg2Rad) * 1.1f;
+            float distance = frameHeight * 0.5f / Mathf.Tan(fieldOfView * 0.5f * Mathf.Deg2Rad) * 1.08f;
 
             _camera.transform.position = focus + Vector3.forward * distance; // le modele regarde +Z
             _camera.transform.LookAt(focus, Vector3.up);
@@ -155,6 +152,28 @@ namespace HouseOfSilence.Network
 
             Destroy(copy);
             return texture;
+        }
+
+        /// <summary>Haut du corps d'un modele Humanoid : de la taille au sommet du crane.</summary>
+        private bool FrameFromBones(Animator animator, out Vector3 focus, out float frameHeight)
+        {
+            focus = Vector3.zero;
+            frameHeight = 0f;
+            if (animator == null || !animator.isHuman) return false;
+
+            Transform head = animator.GetBoneTransform(HumanBodyBones.Head);
+            Transform hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+            Transform neck = animator.GetBoneTransform(HumanBodyBones.Neck);
+            if (head == null || hips == null) return false;
+
+            float headSize = neck != null ? Mathf.Max(0.12f, (head.position.y - neck.position.y) * 2.2f) : 0.22f;
+            float top = head.position.y + headSize;
+            float torso = head.position.y - hips.position.y;
+            float bottom = head.position.y - torso * (0.35f + framing);
+
+            frameHeight = Mathf.Max(0.3f, top - bottom);
+            focus = new Vector3(head.position.x, (top + bottom) * 0.5f, head.position.z);
+            return true;
         }
 
         /// <summary>Le modele visible : corps du survivant, ou modele de la poupee.</summary>

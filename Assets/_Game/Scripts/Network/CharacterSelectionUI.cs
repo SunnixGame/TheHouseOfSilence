@@ -44,6 +44,7 @@ namespace HouseOfSilence.Network
         private GUIStyle _smallStyle;
         private GUIStyle _codeStyle;
         private GUIStyle _cardNameStyle;
+        private GUIStyle _cardWantStyle;
 
         private void Awake()
         {
@@ -191,13 +192,17 @@ namespace HouseOfSilence.Network
 
             // Selection du personnage (portraits).
             GUILayout.Label("Votre personnage (si vous etes survivant) :", _textStyle);
+            // Rangee de cartes centree.
             GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
             int character = _lobby.LocalCharacterPref;
             if (Card(character == -1, "Peu importe", null, WhoWants(-1))) character = -1;
             for (int i = 0; i < _survivors.Count; i++)
             {
+                GUILayout.Space(10f);
                 if (Card(character == i, _survivors[i].Name, _survivors[i].Portrait, WhoWants(i))) character = i;
             }
+            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
             GUILayout.Space(8f);
@@ -303,10 +308,10 @@ namespace HouseOfSilence.Network
             bool clicked = GUI.Button(r, GUIContent.none, GUIStyle.none);
 
             GUILayout.Label(label, _cardNameStyle, GUILayout.Width(CardWidth));
-            if (!string.IsNullOrEmpty(wanted)) GUILayout.Label(wanted, _smallStyle, GUILayout.Width(CardWidth));
+            // Toujours une ligne (vide ou non) : la mise en page ne bouge pas quand les choix changent.
+            GUILayout.Label(wanted ?? "", _cardWantStyle, GUILayout.Width(CardWidth), GUILayout.Height(16f));
 
             GUILayout.EndVertical();
-            GUILayout.Space(8f);
             return clicked && !selected;
         }
 
@@ -358,6 +363,8 @@ namespace HouseOfSilence.Network
             _codeStyle.normal.textColor = new Color(1f, 0.85f, 0.4f);
             _cardNameStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter };
             _cardNameStyle.normal.textColor = new Color(0.92f, 0.9f, 0.86f);
+            _cardWantStyle = new GUIStyle(GUI.skin.label) { fontSize = 11, alignment = TextAnchor.UpperCenter, clipping = TextClipping.Clip };
+            _cardWantStyle.normal.textColor = new Color(0.95f, 0.6f, 0.45f);
         }
     }
 }
