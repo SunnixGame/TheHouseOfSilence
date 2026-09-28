@@ -44,6 +44,9 @@ namespace HouseOfSilence.Player
         private bool _built;
         private Vector3 _lastPosition;
         private Vector3 _velocity;
+        private Transform _bodyParent;
+        private Vector3 _bodyLocalPosition;
+        private Quaternion _bodyLocalRotation;
 
         public bool IsActive { get; private set; }
 
@@ -115,6 +118,14 @@ namespace HouseOfSilence.Player
             IsActive = true;
             animator.enabled = false;
 
+            // Le corps se detache du joueur : tourner la vue (ou recevoir une rotation du
+            // reseau) ne doit plus faire pivoter le cadavre avec la racine.
+            Transform body = animator.transform;
+            _bodyParent = body.parent;
+            _bodyLocalPosition = body.localPosition;
+            _bodyLocalRotation = body.localRotation;
+            body.SetParent(null, true);
+
             Vector3 push = Vector3.zero;
             if (killer != null)
             {
@@ -159,6 +170,12 @@ namespace HouseOfSilence.Player
 
             if (animator != null)
             {
+                // Le corps revient sous le joueur, a sa place d'origine.
+                Transform body = animator.transform;
+                if (_bodyParent != null) body.SetParent(_bodyParent, false);
+                body.localPosition = _bodyLocalPosition;
+                body.localRotation = _bodyLocalRotation;
+
                 animator.enabled = true;
                 animator.Rebind();
             }

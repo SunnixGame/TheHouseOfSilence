@@ -102,6 +102,9 @@ namespace HouseOfSilence.Demon
             if (zoneTitle == null) zoneTitle = FindAnyObjectByType<ZoneTitleDisplay>();
             if (map == null) map = FindAnyObjectByType<ForestMap3D>();
             if (survivor != null) _survivorInput = survivor.GetComponent<InputReader>();
+
+            // Survivant joue mort : mode spectateur sur les personnages encore en vie.
+            if (GetComponent<SpectatorMode>() == null) gameObject.AddComponent<SpectatorMode>();
         }
 
         // Apres NpcBystanders (PNJ changes en survivants) et RandomSpawner.

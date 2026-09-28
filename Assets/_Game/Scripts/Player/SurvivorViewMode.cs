@@ -194,7 +194,9 @@ namespace HouseOfSilence.Player
 
                 foreach (RaycastHit h in hits)
                 {
+                    // Ni le joueur, ni son cadavre (detache pendant le ragdoll).
                     if (h.collider.transform.IsChildOf(transform) || h.distance <= 0f) continue;
+                    if (_deathFocus != null && h.collider.transform.IsChildOf(_deathFocus)) continue;
                     allowed = Mathf.Min(allowed, h.distance);
                 }
             }
