@@ -33,6 +33,16 @@ namespace HouseOfSilence.Demon
             }
         }
 
+        private void Awake()
+        {
+            // Copie du joueur (PNJ jouable) : le corps a ete remplace, on reprend le nouveau.
+            if (bodyAnimator == null)
+            {
+                Transform body = transform.Find("SurvivorBody");
+                if (body != null) bodyAnimator = body.GetComponent<Animator>();
+            }
+        }
+
         /// <summary>Declenche a la mort (avant l'animation) : tueur en parametre.</summary>
         public event Action<Transform> Killed;
 

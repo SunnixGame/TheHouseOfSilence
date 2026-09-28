@@ -1,17 +1,28 @@
 using HouseOfSilence.Player;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace HouseOfSilence.NPC
 {
     /// <summary>
-    /// Figurants immobiles (enfants de cet objet) : au lancement, chacun est pose sur le
-    /// sol, tourne vers le joueur, recoit l'Animator Controller d'Idle et un collider
-    /// pour qu'on ne le traverse pas. Chaque figurant demarre son Idle a un moment et a
-    /// une vitesse differents, pour qu'ils ne bougent pas tous en meme temps.
+    /// Personnages du pack places sous cet objet.
+    ///
+    /// Jouables (par defaut) : au lancement, chacun devient un survivant complet. Le
+    /// joueur de la scene est copie (camera, lampe, deplacement, mort, ragdoll,
+    /// jumpscare, effet VHS...) et le personnage remplace son corps. Le demon les traite
+    /// donc exactement comme le survivant d'origine, et PlayableCharacterSwitcher peut
+    /// en prendre le controle.
+    ///
+    /// Figurants (convertToSurvivors decoche) : poses au sol, tournes vers le joueur,
+    /// Idle et collider, comme avant.
     /// </summary>
+    [DefaultExecutionOrder(-200)] // avant RandomSpawner (-100) : les copies ont aussi leur clairiere
     [DisallowMultipleComponent]
     public class NpcBystanders : MonoBehaviour
     {
+        [Tooltip("Chaque personnage devient un survivant jouable (copie du joueur de la scene).")]
+        [SerializeField] private bool convertToSurvivors = true;
+
         [Tooltip("Controleur donne aux figurants dont l'Animator n'en a pas.")]
         [SerializeField] private RuntimeAnimatorController idleController;
 
@@ -31,7 +42,13 @@ namespace HouseOfSilence.NPC
 
         private void Start()
         {
-            PlayerCharacter player = facePlayer ? FindAnyObjectByType<PlayerCharacter>() : null;
+            PlayerCharacter player = FindAnyObjectByType<PlayerCharacter>();
+
+            if (convertToSurvivors && player != null)
+            {
+                ConvertAll(player);
+                return;
+            }
 
             foreach (Transform npc in transform)
             {
@@ -39,7 +56,7 @@ namespace HouseOfSilence.NPC
 
                 if (snapToGround) SnapToGround(npc);
 
-                if (player != null)
+                if (facePlayer && player != null)
                 {
                     Vector3 toPlayer = player.transform.position - npc.position;
                     toPlayer.y = 0f;
@@ -57,6 +74,107 @@ namespace HouseOfSilence.NPC
                 }
             }
         }
+
+        // ------------------------------------------------------------------
+        // PNJ jouables
+        // ------------------------------------------------------------------
+
+        private void ConvertAll(PlayerCharacter template)
+        {
+            Transform templateBody = template.transform.Find("SurvivorBody");
+            Animator templateAnimator = templateBody != null ? templateBody.GetComponent<Animator>() : null;
+            RuntimeAnimatorController controller = templateAnimator != null && templateAnimator.runtimeAnimatorController != null
+                ? templateAnimator.runtimeAnimatorController
+                : idleController;
+
+            // Copie inactive : les Awake() ne tournent qu'une fois le nouveau corps en place.
+            GameObject holder = new GameObject("_NpcSurvivorFactory");
+            holder.SetActive(false);
+
+            Transform[] npcs = new Transform[transform.childCount];
+            for (int i = 0; i < npcs.Length; i++) npcs[i] = transform.GetChild(i);
+
+            int id = 1;
+            foreach (Transform npc in npcs)
+            {
+                if (!npc.gameObject.activeSelf) continue;
+
+                Quaternion facing = Quaternion.Euler(0f, npc.eulerAngles.y, 0f);
+                GameObject clone = Instantiate(template.gameObject, npc.position, facing, holder.transform);
+                clone.name = npc.name;
+
+                Transform oldBody = clone.transform.Find("SurvivorBody");
+                if (oldBody != null) DestroyImmediate(oldBody.gameObject);
+
+                npc.SetParent(clone.transform, false);
+                npc.localPosition = Vector3.zero;
+                npc.localRotation = Quaternion.identity;
+                npc.name = "SurvivorBody";
+                PrepareBody(npc.gameObject, controller);
+
+                // Pas deux cameras / ecoutes actives : PlayableCharacterSwitcher choisit la bonne.
+                Camera view = clone.GetComponentInChildren<Camera>(true);
+                if (view != null)
+                {
+                    view.enabled = false;
+                    AudioListener listener = view.GetComponent<AudioListener>();
+                    if (listener != null) listener.enabled = false;
+                }
+
+                clone.GetComponent<PlayerCharacter>().SetIdentity(id++, DisplayName(clone.name), false);
+                clone.transform.SetParent(null, true); // active : Awake() avec le nouveau corps
+            }
+
+            Destroy(holder);
+        }
+
+        /// <summary>"NPC_Homme_1" -> "Homme 1".</summary>
+        private static string DisplayName(string objectName)
+        {
+            string n = objectName.StartsWith("NPC_") ? objectName.Substring(4) : objectName;
+            return n.Replace('_', ' ');
+        }
+
+        /// <summary>Animations du survivant, un seul niveau de detail (ragdoll, contour du demon), pas d'ombre (lampe).</summary>
+        private static void PrepareBody(GameObject body, RuntimeAnimatorController controller)
+        {
+            LODGroup lods = body.GetComponent<LODGroup>();
+            if (lods != null)
+            {
+                LOD[] levels = lods.GetLODs();
+                for (int i = 1; i < levels.Length; i++)
+                {
+                    foreach (Renderer r in levels[i].renderers)
+                    {
+                        if (r != null) DestroyImmediate(r.gameObject);
+                    }
+                }
+
+                DestroyImmediate(lods);
+            }
+
+            foreach (Renderer r in body.GetComponentsInChildren<Renderer>(true))
+            {
+                // La lampe torche est tenue contre le corps : pas d'ombre portee.
+                r.shadowCastingMode = ShadowCastingMode.Off;
+                if (r is SkinnedMeshRenderer skinned) skinned.updateWhenOffscreen = true;
+            }
+
+            foreach (Collider c in body.GetComponentsInChildren<Collider>(true)) DestroyImmediate(c);
+
+            Animator animator = body.GetComponent<Animator>();
+            if (animator == null) animator = body.GetComponentInChildren<Animator>(true);
+            if (animator != null)
+            {
+                animator.runtimeAnimatorController = controller;
+                animator.applyRootMotion = false;
+                animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Figurants
+        // ------------------------------------------------------------------
 
         private void SnapToGround(Transform npc)
         {

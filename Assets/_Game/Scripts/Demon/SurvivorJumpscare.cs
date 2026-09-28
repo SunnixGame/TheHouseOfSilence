@@ -73,6 +73,13 @@ namespace HouseOfSilence.Demon
         private void Awake()
         {
             if (view == null) view = GetComponentInChildren<Camera>(true);
+
+            // Copie du joueur (PNJ jouable) : le corps a ete remplace, on reprend le nouveau.
+            if (body == null)
+            {
+                Transform found = transform.Find("SurvivorBody");
+                if (found != null) body = found.gameObject;
+            }
         }
 
         /// <summary>Lance la sequence : 'face' = point a regarder (tete du demon).</summary>
